@@ -69,10 +69,16 @@ export function applyInvasion(state: GameState, party: Party, sim: SimResult, rn
     e.hp = Math.max(1, r.hp);
     if (r.injured) {
       e.morale -= 8;
-      if (!hasRoom(state, 'medical')) {
+      if (hasRoom(state, 'medical')) {
+        notes.push(`${e.name} was patched up in the Medical Bay and is cleared for duty.`);
+      } else if (rng() < 0.5) {
         e.status = 'injured';
         e.statusWeeks = 1;
-      } else notes.push(`${e.name} was patched up in the Medical Bay and is cleared for duty.`);
+        notes.push(`${e.name} is on medical leave next week. (A Medical Bay would have them back on shift immediately.)`);
+      } else {
+        e.hp = Math.max(1, Math.round(maxHp(e, state) * 0.2));
+        notes.push(`${e.name} insists on walking it off. They'll start next week bruised.`);
+      }
     }
     if (r.fled) e.morale -= 4;
   }

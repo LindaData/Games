@@ -61,6 +61,8 @@ export function generateParty(state: GameState, rng: Rng): Party {
     );
   }
   const comp = [...pick(rng, tpl.comp)];
+  // Early weeks cap party size so four-person squads arrive once the player has had time to grow.
+  if (!boss && week < 7) comp.length = Math.min(comp.length, 3);
   // The first audit is a gentler introduction to boss waves.
   if (boss && week <= 8) comp.pop();
   const extra = week >= 34 ? 4 : week >= 26 ? 3 : week >= 18 ? 2 : week >= 10 ? 1 : 0;

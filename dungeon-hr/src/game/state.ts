@@ -294,6 +294,11 @@ export function reducer(prev: GameState, action: Action): GameState {
 export function saveGame(state: GameState) {
   try {
     if (state.phase === 'title') return;
+    if (state.phase === 'gameover') {
+      // A finished run is not resumable.
+      localStorage.removeItem(SAVE_KEY);
+      return;
+    }
     const toSave = state.phase === 'invasion' ? { ...state, phase: 'manage' as const } : state;
     localStorage.setItem(SAVE_KEY, JSON.stringify(toSave));
   } catch {
@@ -308,6 +313,7 @@ export function loadGame(): GameState | null {
     const s = JSON.parse(raw) as GameState;
     if (s.version !== SAVE_VERSION) return null;
     if (s.phase === 'invasion') s.phase = 'manage';
+    s.toast = null;
     return s;
   } catch {
     return null;

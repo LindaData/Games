@@ -128,7 +128,7 @@ export function generateHrEvents(state: GameState, rng: Rng, ctx: { mvpId?: stri
   }
   if (chance(rng, 0.25)) {
     const n = pick(rng, NEWS);
-    candidates.push(() => push({ kind: 'news', from: n.title, title: n.title, body: n.body }));
+    candidates.push(() => push({ kind: 'news', from: 'Corporate Communications', title: n.title, body: n.body }));
   }
 
   // Keep the inbox manageable: resignations plus up to three other memos.
