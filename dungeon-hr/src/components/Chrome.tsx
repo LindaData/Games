@@ -22,7 +22,27 @@ export function TopBar({ state, onMenu, onHelp }: { state: GameState; onMenu: ()
           <div className="brand-sub">{state.company}</div>
         </div>
       </div>
-      <div className="kpis">
+      <div className="mobile-kpis mobile-only" aria-label="Company status">
+        <span className="mk">
+          <Icon name={state.nextParty?.night ? 'moon' : 'sun'} size={14} className="muted" /> Wk {state.week}
+        </span>
+        <span className="mk">
+          <Icon name="gold" size={14} className="gold" /> <Gold v={state.gold} />
+        </span>
+        <span className="mk">Lv {state.dungeonLevel}</span>
+        <span className="hearts mk" aria-label={`Board confidence ${state.board} of 3`}>
+          {[0, 1, 2].map((i) => (
+            <Icon key={i} name="heart" size={13} className={i < state.board ? 'on' : 'off'} />
+          ))}
+        </span>
+        <button className="btn btn-ghost btn-icon mk-menu" aria-label="Menu" onClick={onMenu}>
+          <Icon name="menu" />
+        </button>
+      </div>
+      <div className="mobile-xp mobile-only" aria-hidden="true">
+        <span style={{ width: `${Math.min(100, (state.dungeonXp / need) * 100)}%` }} />
+      </div>
+      <div className="kpis desktop-only">
         <div className="kpi">
           <Icon name={state.nextParty?.night ? 'moon' : 'sun'} size={16} className="muted" />
           <div>
@@ -87,7 +107,7 @@ export function TopBar({ state, onMenu, onHelp }: { state: GameState; onMenu: ()
   );
 }
 
-export function Intel({ state, onStart, onNav }: { state: GameState; onStart: () => void; onNav: (tab: string) => void }) {
+export function Intel({ state, onStart, onNav, inline }: { state: GameState; onStart: () => void; onNav: (tab: string) => void; inline?: boolean }) {
   const p = state.nextParty;
   const intel = state.tech.includes('intel');
   const vault = vaultRoom(state);
@@ -106,7 +126,7 @@ export function Intel({ state, onStart, onNav }: { state: GameState; onStart: ()
 
 
   return (
-    <aside className="aside">
+    <aside className={inline ? 'intel-inline' : 'aside'}>
       <div className="panel panel-pad intel">
         <div className="intel-head">
           <div className="grow">

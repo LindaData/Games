@@ -16,7 +16,8 @@ import { newGame, reducer } from './game/state';
 import type { GameState } from './game/types';
 import { downloadText, saveFileName } from './ui/download';
 import { Icon } from './ui/Icons';
-import { play } from './ui/sfx';
+import { isMuted, play, setMuted } from './ui/sfx';
+import { roomStaff, vaultRoom } from './game/dungeon';
 import { askConfirm } from './ui/confirm';
 
 type Tab = CoachTab;
@@ -33,6 +34,8 @@ export default function App() {
   const [openEmp, setOpenEmp] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
   const [help, setHelp] = useState(false);
+  const [more, setMore] = useState(false);
+  const [muted, setMutedState] = useState(isMuted());
   const [toast, setToast] = useState<GameState['toast']>(null);
 
   useEffect(() => {
@@ -178,9 +181,78 @@ export default function App() {
             {tab === 'rnd' && <Research state={state} dispatch={dispatch} />}
             {tab === 'policies' && <Policies state={state} dispatch={dispatch} />}
             {tab === 'memorial' && <Memorial state={state} />}
+            {tab === 'intel' && <Intel state={state} onStart={start} onNav={(t) => setTab(t as Tab)} inline />}
           </section>
           <Intel state={state} onStart={start} onNav={(t) => setTab(t as Tab)} />
         </main>
+      )}
+
+      {state.phase === 'manage' && (
+        <MobileDock
+          state={state}
+          tab={tab}
+          onTab={(t) => {
+            setTab(t);
+            window.scrollTo({ top: 0 });
+            play('click');
+          }}
+          onMore={() => setMore(true)}
+          onStart={start}
+        />
+      )}
+
+      {more && (
+        <Modal title="More" onClose={() => setMore(false)}>
+          <div className="stack">
+            {(
+              [
+                ['rnd', 'R&D / Procurement', 'flask', `${state.research} R&D points`],
+                ['policies', 'HR Policies', 'book', `${state.policies.length} active`],
+                ['memorial', 'Memorial Wall', 'skull', `${state.memorial.length} former staff`],
+              ] as const
+            ).map(([id, label, icon, sub]) => (
+              <button
+                key={id}
+                className="btn more-item"
+                onClick={() => {
+                  setTab(id);
+                  setMore(false);
+                  window.scrollTo({ top: 0 });
+                }}
+              >
+                <Icon name={icon} size={18} />
+                <span className="grow" style={{ textAlign: 'left' }}>
+                  {label}
+                </span>
+                <span className="xs muted">{sub}</span>
+              </button>
+            ))}
+            <button
+              className="btn more-item"
+              onClick={() => {
+                setMore(false);
+                setHelp(true);
+              }}
+            >
+              <Icon name="book" size={18} />
+              <span className="grow" style={{ textAlign: 'left' }}>
+                Employee Handbook
+              </span>
+            </button>
+            <button
+              className="btn more-item"
+              onClick={() => {
+                setMore(false);
+                setMenu(true);
+              }}
+            >
+              <Icon name="menu" size={18} />
+              <span className="grow" style={{ textAlign: 'left' }}>
+                Main menu (saves, sound)
+              </span>
+            </button>
+          </div>
+        </Modal>
       )}
 
       {openEmp && state.phase === 'manage' && <EmployeeModal id={openEmp} state={state} dispatch={dispatch} onClose={() => setOpenEmp(null)} onOpen={setOpenEmp} />}
@@ -212,6 +284,16 @@ export default function App() {
             <CopySaveButton state={state} />
             <button className="btn" onClick={() => setHelp(true)}>
               <Icon name="book" size={16} /> Open the Handbook
+            </button>
+            <button
+              className="btn"
+              onClick={() => {
+                setMuted(!muted);
+                setMutedState(!muted);
+                if (muted) play('click');
+              }}
+            >
+              <Icon name={muted ? 'mute' : 'sound'} size={16} /> Sound: {muted ? 'off' : 'on'}
             </button>
             <button className="btn" onClick={toTitle}>
               Save &amp; exit to title
@@ -263,5 +345,64 @@ function CopySaveButton({ state }: { state: GameState }) {
       )}
       {status !== 'idle' && <div className="xs muted">Paste it on the title screen under “Paste a save code” to restore this dungeon.</div>}
     </>
+  );
+}
+
+/** Phone-only bottom dock: the Open for Business bar plus the main tabs. */
+function MobileDock({
+  state,
+  tab,
+  onTab,
+  onMore,
+  onStart,
+}: {
+  state: GameState;
+  tab: Tab;
+  onTab: (t: Tab) => void;
+  onMore: () => void;
+  onStart: () => void;
+}) {
+  const p = state.nextParty;
+  const vaultEmpty = roomStaff(state, vaultRoom(state).id).filter((e) => e.status === 'active').length === 0;
+  const bench = state.employees.filter((e) => !e.roomId && e.status === 'active').length;
+  const warn = vaultEmpty ? 'Vault is unstaffed!' : bench ? `${bench} on the bench` : null;
+  const tabs: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name']; badge?: string }[] = [
+    { id: 'floor', label: 'Floor', icon: 'vault' },
+    { id: 'staff', label: 'Staff', icon: 'users' },
+    { id: 'recruit', label: 'Hire', icon: 'mail', badge: state.applicants.length ? String(state.applicants.length) : undefined },
+    { id: 'intel', label: 'Visitors', icon: 'sword', badge: warn ? '!' : undefined },
+  ];
+  const moreActive = tab === 'rnd' || tab === 'policies' || tab === 'memorial';
+  return (
+    <div className="dock mobile-only">
+      <div className="dock-cta">
+        <button className="dock-info" onClick={() => onTab('intel')}>
+          <b>
+            Week {state.week} · {p.members.length} visitors{p.boss ? ' · BOSS' : ''}
+          </b>
+          <span className={warn ? 'bad' : 'muted'}>{warn ?? `${p.name} · bounty ${p.bounty}g`}</span>
+        </button>
+        <button className="btn btn-primary" data-tour-target="go" onClick={onStart}>
+          Open for Business
+        </button>
+      </div>
+      <nav className="tabbar" aria-label="Sections">
+        {tabs.map((t) => (
+          <button key={t.id} className={tab === t.id ? 'on' : ''} data-tour-target={`nav-${t.id}`} onClick={() => onTab(t.id)} aria-current={tab === t.id ? 'page' : undefined}>
+            <span className="tab-icon">
+              <Icon name={t.icon} size={20} />
+              {t.badge && <span className={`tab-badge ${t.badge === '!' ? 'bad' : ''}`}>{t.badge}</span>}
+            </span>
+            {t.label}
+          </button>
+        ))}
+        <button className={moreActive ? 'on' : ''} onClick={onMore}>
+          <span className="tab-icon">
+            <Icon name="menu" size={20} />
+          </span>
+          More
+        </button>
+      </nav>
+    </div>
   );
 }

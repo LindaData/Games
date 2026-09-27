@@ -126,6 +126,7 @@ export function Report({ state, dispatch }: { state: GameState; dispatch: (a: Ac
           <div className="section-title">
             <Icon name="chart" /> Performance Review
           </div>
+          <div className="table-scroll">
           <table className="perf">
             <thead>
               <tr>
@@ -154,6 +155,7 @@ export function Report({ state, dispatch }: { state: GameState; dispatch: (a: Ac
                 ))}
             </tbody>
           </table>
+          </div>
           {s.performance.length === 0 && <div className="dim small">Nobody was on the invasion route this week.</div>}
           {s.levelUps.length > 0 && (
             <div className="stack" style={{ marginTop: 12, gap: 4 }}>
@@ -227,7 +229,8 @@ export function HrInbox({ state, dispatch }: { state: GameState; dispatch: (a: A
         <div className="section-title" style={{ marginBottom: 4 }}>
           <Icon name="mail" /> HR Inbox
         </div>
-        <div className="xs muted" style={{ marginBottom: 6 }}>
+        <div className="xs muted memo-count">{state.hrInbox.length} memo{state.hrInbox.length === 1 ? '' : 's'} waiting</div>
+        <div className="xs muted memo-help" style={{ marginBottom: 6 }}>
           Resolve every memo before the next shift. Decisions affect morale, money, and who shows up to work.
         </div>
         {outcome && (

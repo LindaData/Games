@@ -4,7 +4,7 @@ import type { Action } from '../game/state';
 import type { GameState } from '../game/types';
 import { Icon } from '../ui/Icons';
 
-export type CoachTab = 'floor' | 'staff' | 'recruit' | 'rnd' | 'policies' | 'memorial';
+export type CoachTab = 'floor' | 'staff' | 'recruit' | 'rnd' | 'policies' | 'memorial' | 'intel';
 
 interface Step {
   id: string;
@@ -25,22 +25,22 @@ function currentStep(state: GameState, tab: CoachTab): Step | null {
   if (!vaultStaffed || bench > 0) {
     if (tab !== 'floor') return { id: 'assign', title: 'Put your staff to work', text: 'New hires start on the bench, where they do nothing. Head to the Floor Plan.', target: 'nav-floor', tab: 'floor' };
     return !vaultStaffed
-      ? { id: 'vault', title: 'Guard the Treasure Vault', text: 'If adventurers clear the Vault, they steal your gold. Click a benched employee, then click the Vault (or drag them onto it).', target: 'vault' }
-      : { id: 'bench', title: 'Empty the bench', text: 'Benched staff won\'t fight. Click one, then click a room with a free slot (or drag). Rooms show a job-fit grade from S to D when you hover a slot.', target: 'bench' };
+      ? { id: 'vault', title: 'Guard the Treasure Vault', text: 'If adventurers clear the Vault, they steal your gold. Tap a benched employee, then tap the Vault (on a computer you can also drag them).', target: 'vault' }
+      : { id: 'bench', title: 'Empty the bench', text: 'Benched staff won\'t fight. Tap one, then tap a room with a free slot. Tap a room itself to see who fits it best (job-fit grades S to D).', target: 'bench' };
   }
   if (state.rooms.length <= 3) {
     if (tab !== 'floor') return { id: 'build', title: 'Build a room', text: 'Head to the Floor Plan to build.', target: 'nav-floor', tab: 'floor' };
     return {
       id: 'build',
       title: 'Build a room',
-      text: 'Click an empty slot. A Medical Bay (Back Office) keeps injured staff on duty and saves lives. A Guard Post (Invasion Route) adds positions and defense.',
+      text: 'Tap an empty slot. A Medical Bay (Back Office) keeps injured staff on duty and saves lives. A Guard Post (Invasion Route) adds positions and defense.',
       target: 'empty-slot',
     };
   }
   return {
     id: 'go',
     title: 'Open for business',
-    text: 'Check the Incoming Visitors briefing, then press Open for Business. The fight plays out on its own. Breaches in weeks 1–4 are forgiven (probation); after that, three strikes and the Board takes over.',
+    text: 'Check the Incoming Visitors briefing (the Visitors tab on a phone), then press Open for Business. The fight plays out on its own. Breaches in weeks 1–4 are forgiven (probation); after that, three strikes and the Board takes over.',
     target: 'go',
   };
 }

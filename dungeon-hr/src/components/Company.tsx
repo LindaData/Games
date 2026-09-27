@@ -33,7 +33,7 @@ export function Research({ state, dispatch }: { state: GameState; dispatch: (a: 
           const next = tiers[cur + 1];
           return (
             <div key={kind} style={{ marginBottom: 14 }}>
-              <div className="row">
+              <div className="row wrap">
                 <b>{kind === 'weapons' ? 'Weapons' : 'Armor'}</b>
                 <span className="muted small">
                   {kind === 'weapons' ? 'Attack' : 'Defense'} ×{tiers[cur].mult.toFixed(2)}
