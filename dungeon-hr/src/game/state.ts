@@ -8,8 +8,7 @@ import type { SimResult } from './sim';
 import type { GameState, Party, RoomTypeId, Zone } from './types';
 import { applyInvasion } from './week';
 
-export const SAVE_VERSION = 1;
-const SAVE_KEY = 'dungeon-hr-save-v1';
+import { SAVE_VERSION } from './save';
 
 export function newGame(company = 'Dungeon Corp.', rng: Rng = defaultRng): GameState {
   const state: GameState = {
@@ -44,6 +43,10 @@ export function newGame(company = 'Dungeon Corp.', rng: Rng = defaultRng): GameS
     gameOverReason: null,
     ipoShown: false,
     toast: null,
+    relations: [],
+    flags: [],
+    weeklyBuff: null,
+    tipsSeen: [],
   };
   const hall = { id: nextId(state, 'r'), type: 'hallway' as const, level: 1, zone: 'route' as const, slot: 0 };
   state.rooms.push(hall);
@@ -84,7 +87,8 @@ export type Action =
   | { type: 'HR_RESOLVE'; eventId: string; option: string }
   | { type: 'HR_NEXT' }
   | { type: 'DISMISS_TUTORIAL' }
-  | { type: 'ACK_IPO' };
+  | { type: 'ACK_IPO' }
+  | { type: 'DISMISS_TIP'; id: string };
 
 function toast(state: GameState, text: string, tone: 'good' | 'bad') {
   state.toast = { id: (state.toast?.id ?? 0) + 1, text, tone };
@@ -285,45 +289,12 @@ export function reducer(prev: GameState, action: Action): GameState {
     case 'DISMISS_TUTORIAL':
       s.tutorialDone = true;
       return s;
+    case 'DISMISS_TIP':
+      if (!s.tipsSeen.includes(action.id)) s.tipsSeen.push(action.id);
+      if (action.id === 'coach') s.tutorialDone = true;
+      return s;
     case 'ACK_IPO':
       s.ipoShown = true;
       return s;
-  }
-}
-
-export function saveGame(state: GameState) {
-  try {
-    if (state.phase === 'title') return;
-    if (state.phase === 'gameover') {
-      // A finished run is not resumable.
-      localStorage.removeItem(SAVE_KEY);
-      return;
-    }
-    const toSave = state.phase === 'invasion' ? { ...state, phase: 'manage' as const } : state;
-    localStorage.setItem(SAVE_KEY, JSON.stringify(toSave));
-  } catch {
-    // Storage may be unavailable (private mode); the game still works without saves.
-  }
-}
-
-export function loadGame(): GameState | null {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw) as GameState;
-    if (s.version !== SAVE_VERSION) return null;
-    if (s.phase === 'invasion') s.phase = 'manage';
-    s.toast = null;
-    return s;
-  } catch {
-    return null;
-  }
-}
-
-export function clearSave() {
-  try {
-    localStorage.removeItem(SAVE_KEY);
-  } catch {
-    // ignore
   }
 }

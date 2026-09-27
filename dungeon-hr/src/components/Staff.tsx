@@ -19,6 +19,8 @@ import {
 import type { Action } from '../game/state';
 import type { Employee, GameState, RoomTypeId } from '../game/types';
 import { coverLetter } from '../ui/flavor';
+import { askConfirm } from '../ui/confirm';
+import { relationsOf } from '../game/relations';
 import { Icon } from '../ui/Icons';
 import { play } from '../ui/sfx';
 import { EmployeeCard, Gold, GradeBadge, Modal, MoodLine, Portrait, StatBars, TraitChip, StatusChip } from './common';
@@ -89,7 +91,19 @@ export function StaffDirectory({ state, onOpen }: { state: GameState; onOpen: (i
   );
 }
 
-export function EmployeeModal({ id, state, dispatch, onClose }: { id: string; state: GameState; dispatch: (a: Action) => void; onClose: () => void }) {
+export function EmployeeModal({
+  id,
+  state,
+  dispatch,
+  onClose,
+  onOpen,
+}: {
+  id: string;
+  state: GameState;
+  dispatch: (a: Action) => void;
+  onClose: () => void;
+  onOpen?: (id: string) => void;
+}) {
   const e = state.employees.find((x) => x.id === id);
   if (!e) return null;
   const room = getRoom(state, e.roomId);
@@ -178,6 +192,7 @@ export function EmployeeModal({ id, state, dispatch, onClose }: { id: string; st
           </div>
         </div>
       </div>
+      <RelationsPanel id={e.id} state={state} onOpen={onOpen} />
       <div className="row wrap">
         <button
           className="btn btn-primary"
@@ -203,10 +218,11 @@ export function EmployeeModal({ id, state, dispatch, onClose }: { id: string; st
         <button
           className="btn btn-danger"
           onClick={() => {
-            if (confirm(`Terminate ${e.name}? Everyone loses morale${hasTrait(e, 'nepo') ? ' (a LOT — he is the Boss\'s Nephew)' : ''}.`)) {
+            void askConfirm(`Terminate ${e.name}? Everyone loses morale${hasTrait(e, 'nepo') ? ' (a LOT — he is the Boss\'s Nephew)' : ''}.`, { ok: 'Terminate' }).then((ok) => {
+              if (!ok) return;
               dispatch({ type: 'FIRE', empId: e.id });
               onClose();
-            }
+            });
           }}
         >
           Terminate
@@ -260,6 +276,7 @@ export function Recruitment({ state, dispatch }: { state: GameState; dispatch: (
                 footer={
                   <button
                     className="btn btn-primary btn-sm"
+                    data-tour-target="hire-btn"
                     disabled={full || state.gold < cost}
                     onClick={() => {
                       dispatch({ type: 'HIRE', id: a.id });
@@ -279,5 +296,37 @@ export function Recruitment({ state, dispatch }: { state: GameState; dispatch: (
         suitability (S/A) — a Goblin resetting traps is worth two in a hallway. New species unlock as your dungeon levels up.
       </div>
     </>
+  );
+}
+
+function RelationsPanel({ id, state, onOpen }: { id: string; state: GameState; onOpen?: (id: string) => void }) {
+  const rels = relationsOf(state, id).filter((r) => Math.abs(r.score) >= 10);
+  return (
+    <div className="panel panel-pad">
+      <div className="section-title" style={{ marginBottom: 8 }}>
+        <Icon name="heart" /> Workplace relationships <span className="sub">Friends in the same room: +8% each. Rivals: −8% each.</span>
+      </div>
+      {rels.length === 0 ? (
+        <div className="small dim">No strong feelings about anyone yet. Coworkers who share a room get to know each other.</div>
+      ) : (
+        <div className="rel-list">
+          {rels.map(({ other, score, bond }) => (
+            <button key={other.id} className="rel-row" onClick={() => onOpen?.(other.id)} disabled={!onOpen}>
+              <Portrait kind={other.species} hue={other.hue} size={34} />
+              <span className="grow" style={{ textAlign: 'left' }}>
+                <b>{other.name}</b>
+                <span className="xs muted"> · {title(other)}</span>
+              </span>
+              <span className={`chip ${bond === 'friend' ? 'good' : bond === 'rival' ? 'bad' : ''}`}>
+                {bond === 'friend' ? '♥ Friend' : bond === 'rival' ? '⚡ Rival' : score > 0 ? 'Friendly' : 'Tense'}
+              </span>
+              <span className="rel-meter" aria-label={`Relationship ${score}`}>
+                <span style={{ left: score >= 0 ? '50%' : `${50 + score / 2}%`, width: `${Math.abs(score) / 2}%`, background: score >= 0 ? 'var(--green)' : 'var(--red)' }} />
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

@@ -8,7 +8,7 @@ import { Icon } from '../ui/Icons';
 import { isMuted, setMuted, play } from '../ui/sfx';
 import { Bar, Gold, Portrait } from './common';
 
-export function TopBar({ state, onMenu }: { state: GameState; onMenu: () => void }) {
+export function TopBar({ state, onMenu, onHelp }: { state: GameState; onMenu: () => void; onHelp: () => void }) {
   const [muted, setM] = useState(isMuted());
   const need = dungeonXpToNext(state.dungeonLevel);
   return (
@@ -76,6 +76,9 @@ export function TopBar({ state, onMenu }: { state: GameState; onMenu: () => void
         >
           <Icon name={muted ? 'mute' : 'sound'} />
         </button>
+        <button className="btn btn-ghost btn-icon" aria-label="Handbook" title="Employee Handbook" onClick={onHelp}>
+          <Icon name="book" />
+        </button>
         <button className="btn btn-ghost btn-icon" aria-label="Menu" onClick={onMenu}>
           <Icon name="menu" />
         </button>
@@ -101,12 +104,6 @@ export function Intel({ state, onStart, onNav }: { state: GameState; onStart: ()
   const hasTrap = state.rooms.some((r) => r.type === 'trap');
   const hasMimic = routeStaff.some((e) => e.species === 'mimic' || e.traits.includes('disguise'));
 
-  const checklist = [
-    { done: state.stats.hired > 0, text: 'Hire an applicant', tab: 'recruit' },
-    { done: vaultStaff.length > 0, text: 'Staff the Treasure Vault (drag staff onto it)', tab: 'floor' },
-    { done: state.rooms.length > 3, text: 'Build a room (a Guard Post or Medical Bay is a strong start)', tab: 'floor' },
-    { done: false, text: 'Open for business and watch your staff work', tab: '' },
-  ];
 
   return (
     <aside className="aside">
@@ -227,26 +224,19 @@ export function Intel({ state, onStart, onNav }: { state: GameState; onStart: ()
         )}
       </div>
 
-      {!state.tutorialDone && (
-        <div className="panel panel-pad">
-          <div className="section-title">
-            <Icon name="book" /> Onboarding Checklist
-          </div>
-          <ul className="checklist">
-            {checklist.map((c, i) => (
-              <li key={i} className={c.done ? 'done' : ''} onClick={() => c.tab && onNav(c.tab)} style={{ cursor: c.tab ? 'pointer' : undefined }}>
-                <span className="box">{c.done ? '✓' : ''}</span>
-                {c.text}
-              </li>
-            ))}
-          </ul>
-          <p className="xs dim" style={{ marginBottom: 0 }}>
-            Tip: breaches in weeks 1–4 are forgiven (probation). After that, three strikes and the Board takes over.
-          </p>
+      {state.weeklyBuff && (
+        <div className="alert info">
+          <Icon name="bolt" />
+          <span>
+            <b>{state.weeklyBuff.label}</b> is in effect for this invasion
+            {state.weeklyBuff.atk !== 1 && ` (attack +${Math.round((state.weeklyBuff.atk - 1) * 100)}%`}
+            {state.weeklyBuff.def !== 1 && `${state.weeklyBuff.atk !== 1 ? ', ' : ' ('}defense +${Math.round((state.weeklyBuff.def - 1) * 100)}%`}
+            {(state.weeklyBuff.atk !== 1 || state.weeklyBuff.def !== 1) && ')'}.
+          </span>
         </div>
       )}
 
-      <button className="btn btn-primary btn-lg go-btn" onClick={onStart}>
+      <button className="btn btn-primary btn-lg go-btn" data-tour-target="go" onClick={onStart}>
         <span className="display" style={{ letterSpacing: '0.08em' }}>
           Open for Business
         </span>

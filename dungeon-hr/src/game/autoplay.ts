@@ -56,7 +56,7 @@ export function autoplay(maxWeeks: number, rng: Rng, strategy: 'smart' | 'idle' 
       const pick =
         strategy === 'idle'
           ? opts[opts.length - 1]
-          : opts.find((o) => ['approve', 'counter', 'promote', 'mediate', 'plaque', 'coach', 'pay', 'force', 'ok', 'negotiate'].includes(o.id)) ?? opts[0];
+          : opts.find((o) => ['approve', 'counter', 'promote', 'mediate', 'plaque', 'coach', 'pay', 'force', 'ok', 'negotiate', 'speech', 'retreat', 'cake', 'match', 'reject', 'stay', 'decline'].includes(o.id)) ?? opts[0];
       d({ type: 'HR_RESOLVE', eventId: ev.id, option: pick.id });
       d({ type: 'HR_NEXT' });
     }

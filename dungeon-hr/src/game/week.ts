@@ -12,6 +12,7 @@ import {
   weeklySalary,
 } from './employees';
 import { generateHrEvents, removeEmployee } from './hr';
+import { weeklyRelations } from './relations';
 import { clamp, type Rng } from './rng';
 import type { SimResult } from './sim';
 import type { GameState, Party, WeekSummary } from './types';
@@ -24,6 +25,8 @@ export const PROBATION_WEEKS = 4;
  */
 export function applyInvasion(state: GameState, party: Party, sim: SimResult, rng: Rng): WeekSummary {
   const defended = sim.outcome === 'defended';
+  // Any one-week buff was consumed by this invasion.
+  state.weeklyBuff = null;
   const notes: string[] = [];
   const levelUps: string[] = [];
   const departures: string[] = [];
@@ -62,7 +65,7 @@ export function applyInvasion(state: GameState, party: Party, sim: SimResult, rn
     });
     if (r.died) {
       if (e.roomId) deadRooms.add(e.roomId);
-      removeEmployee(state, e.id, 'fatality', sim.incidents.find((i) => i.employee === e.name && i.fatal)?.cause ?? 'Adventurers');
+      removeEmployee(state, e.id, 'fatality', sim.incidents.find((i) => i.employee === e.name && i.fatal)?.cause ?? 'Adventurers', notes);
       state.stats.fatalities += 1;
       continue;
     }
@@ -139,6 +142,10 @@ export function applyInvasion(state: GameState, party: Party, sim: SimResult, rn
     }
   }
 
+  // Relationships drift: roommates bond, feuds form.
+  const fought = new Set(Object.entries(sim.emp).filter(([, r]) => r.fought).map(([id]) => id));
+  notes.push(...weeklyRelations(state, rng, fought, defended).slice(0, 3));
+
   // 5. Finances.
   const bounty = defended ? party.bounty : 0;
   const lootGold = sim.loot;
@@ -184,7 +191,7 @@ export function applyInvasion(state: GameState, party: Party, sim: SimResult, rn
   // 6. Immediate resignations (rock-bottom morale).
   for (const e of [...state.employees]) {
     if (e.morale <= 5) {
-      removeEmployee(state, e.id, 'resigned', 'Walked out (morale 0)');
+      removeEmployee(state, e.id, 'resigned', 'Walked out (morale 0)', notes);
       departures.push(`${e.name} walked out mid-shift, taking a stapler and three torches.`);
     }
   }

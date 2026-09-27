@@ -4,6 +4,10 @@ import { hrOptions, resolveHr } from './hr';
 import { mulberry32 } from './rng';
 import { simulateInvasion } from './sim';
 import { newGame, reducer } from './state';
+import { adjustRel, bond, chemistry, relationsOf, weeklyRelations } from './relations';
+import { exportSave, importSave, migrate } from './save';
+import { combatProfile } from './employees';
+import { getRoom } from './dungeon';
 
 describe('invasion simulation', () => {
   it('always terminates with an outcome and consistent events', () => {
@@ -60,9 +64,12 @@ describe('HR events', () => {
     const r = autoplay(12, rng);
     expect(r.weeks).toBeGreaterThan(0);
     let s = newGame('T', rng);
-    const kinds = ['raise', 'union', 'vacation', 'burnout', 'sick', 'resignation', 'dispute', 'review', 'pip', 'promotion', 'inspection', 'news'] as const;
+    const kinds = [
+      'raise', 'union', 'vacation', 'burnout', 'sick', 'resignation', 'dispute', 'review', 'pip', 'promotion', 'inspection', 'news',
+      'feud', 'poach', 'birthday', 'suggestion', 'merger', 'auditprep', 'retirement',
+    ] as const;
     for (const kind of kinds) {
-      const ev = { id: 'x', kind, title: 't', body: 'b', empId: s.employees[0].id, empId2: s.employees[1].id, amount: 20, from: 'f' };
+      const ev = { id: 'x', kind, title: 't', body: 'b', empId: s.employees[0].id, empId2: s.employees[1].id, amount: kind === 'suggestion' ? 2 : 20, from: 'f' };
       for (const o of hrOptions(s, ev)) {
         const clone = structuredClone(s);
         expect(typeof resolveHr(clone, ev, o.id, rng)).toBe('string');
@@ -91,5 +98,58 @@ describe('balance', () => {
     );
     expect(smartWeeks).toBeGreaterThan(idleWeeks);
     expect(idleWeeks).toBeLessThan(20);
+  });
+});
+
+describe('relationships', () => {
+  it('forms friendships and rivalries that change combat stats', () => {
+    const s = newGame('T', mulberry32(5));
+    const [a, b] = s.employees; // both start in the hallway
+    const base = combatProfile(a, s, getRoom(s, a.roomId), false).atk;
+    adjustRel(s, a.id, b.id, 60);
+    expect(bond(s, a.id, b.id)).toBe('friend');
+    expect(chemistry(s, a, [b]).mult).toBeGreaterThan(1);
+    expect(combatProfile(a, s, getRoom(s, a.roomId), false).atk).toBeGreaterThan(base);
+    adjustRel(s, a.id, b.id, -150);
+    expect(bond(s, b.id, a.id)).toBe('rival');
+    expect(combatProfile(a, s, getRoom(s, a.roomId), false).atk).toBeLessThan(base);
+    expect(relationsOf(s, a.id)[0].other.id).toBe(b.id);
+  });
+
+  it('roommates drift toward friendship over time', () => {
+    const s = newGame('T', mulberry32(9));
+    const [a, b] = s.employees;
+    a.traits = [];
+    b.traits = [];
+    const rng = mulberry32(1);
+    for (let i = 0; i < 12; i++) weeklyRelations(s, rng, new Set([a.id, b.id]), true);
+    expect(bond(s, a.id, b.id)).toBe('friend');
+  });
+});
+
+describe('saves', () => {
+  it('round-trips through export/import', () => {
+    const s = newGame('Exported Inc.', mulberry32(2));
+    const back = importSave(exportSave(s));
+    expect(back.company).toBe('Exported Inc.');
+    expect(back.employees.length).toBe(s.employees.length);
+  });
+
+  it('migrates v1 saves', () => {
+    const s = newGame('Old', mulberry32(2)) as unknown as Record<string, unknown>;
+    delete s.relations;
+    delete s.flags;
+    delete s.weeklyBuff;
+    delete s.tipsSeen;
+    s.version = 1;
+    const m = migrate(s)!;
+    expect(m.version).toBe(2);
+    expect(m.relations).toEqual([]);
+    expect(m.flags).toEqual([]);
+  });
+
+  it('rejects files that are not saves', () => {
+    expect(() => importSave('{"hello": 1}')).toThrow();
+    expect(() => importSave('not json')).toThrow();
   });
 });
