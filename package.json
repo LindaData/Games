@@ -1,10 +1,16 @@
 {
   "name": "games",
   "private": true,
-  "workspaces": ["dungeon-hr"],
+  "workspaces": [
+    "dungeon-hr"
+  ],
   "scripts": {
     "dev": "npm run dev -w dungeon-hr",
     "build": "npm run build -w dungeon-hr",
-    "test": "npm run test -w dungeon-hr"
+    "test": "npm run test -w dungeon-hr",
+    "chess:install": "npm --prefix chess-survivor install",
+    "chess:dev": "npm --prefix chess-survivor run dev",
+    "chess:build": "npm --prefix chess-survivor run build",
+    "chess:test": "npm --prefix chess-survivor test"
   }
 }
