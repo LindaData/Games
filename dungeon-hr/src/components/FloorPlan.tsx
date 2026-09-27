@@ -8,6 +8,7 @@ import type { Employee, GameState, Room, Zone } from '../game/types';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icons';
 import { play } from '../ui/sfx';
+import { askConfirm } from '../ui/confirm';
 import { Gold, GradeBadge, Modal, Portrait } from './common';
 
 const MAX_ROUTE = 7;
@@ -350,10 +351,11 @@ function RoomPanel({
           <button
             className="btn btn-danger"
             onClick={() => {
-              if (confirm(`Demolish the ${def.name}? You'll get ${Math.round(buildCost(room.type) * 0.5)}g back and its staff go to the bench.`)) {
+              void askConfirm(`Demolish the ${def.name}? You'll get ${Math.round(buildCost(room.type) * 0.5)}g back and its staff go to the bench.`, { ok: 'Demolish' }).then((ok) => {
+                if (!ok) return;
                 dispatch({ type: 'DEMOLISH', roomId: room.id });
                 onClose();
-              }
+              });
             }}
           >
             Demolish · +{Math.round(buildCost(room.type) * 0.5)}g

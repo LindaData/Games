@@ -17,6 +17,7 @@ import type { GameState } from './game/types';
 import { downloadText, saveFileName } from './ui/download';
 import { Icon } from './ui/Icons';
 import { play } from './ui/sfx';
+import { askConfirm } from './ui/confirm';
 
 type Tab = CoachTab;
 
@@ -208,6 +209,7 @@ export default function App() {
             <button className="btn" onClick={() => downloadText(saveFileName(state.company, state.week), exportSave(state))}>
               <Icon name="download" size={16} /> Export save file
             </button>
+            <CopySaveButton state={state} />
             <button className="btn" onClick={() => setHelp(true)}>
               <Icon name="book" size={16} /> Open the Handbook
             </button>
@@ -217,10 +219,11 @@ export default function App() {
             <button
               className="btn btn-danger"
               onClick={() => {
-                if (confirm(`Abandon this dungeon? Slot ${slot} will be erased.`)) {
+                void askConfirm(`Abandon this dungeon? Slot ${slot} will be erased.`, { ok: 'Abandon' }).then((ok) => {
+                  if (!ok) return;
                   if (slot) deleteSlot(slot);
                   toTitle();
-                }
+                });
               }}
             >
               Abandon dungeon (erase slot {slot})
@@ -235,5 +238,30 @@ export default function App() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Copies the save as text, for browsers or embeds that block file downloads. */
+function CopySaveButton({ state }: { state: GameState }) {
+  const [status, setStatus] = useState<'idle' | 'copied' | 'manual'>('idle');
+  const code = exportSave(state);
+  return (
+    <>
+      <button
+        className="btn"
+        onClick={() => {
+          navigator.clipboard
+            .writeText(code)
+            .then(() => setStatus('copied'))
+            .catch(() => setStatus('manual'));
+        }}
+      >
+        <Icon name="book" size={16} /> {status === 'copied' ? 'Save code copied' : 'Copy save code'}
+      </button>
+      {status === 'manual' && (
+        <textarea className="save-code" readOnly value={code} aria-label="Save code" onFocus={(e) => e.currentTarget.select()} autoFocus />
+      )}
+      {status !== 'idle' && <div className="xs muted">Paste it on the title screen under “Paste a save code” to restore this dungeon.</div>}
+    </>
   );
 }

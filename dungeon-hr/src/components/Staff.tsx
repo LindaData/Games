@@ -19,6 +19,7 @@ import {
 import type { Action } from '../game/state';
 import type { Employee, GameState, RoomTypeId } from '../game/types';
 import { coverLetter } from '../ui/flavor';
+import { askConfirm } from '../ui/confirm';
 import { relationsOf } from '../game/relations';
 import { Icon } from '../ui/Icons';
 import { play } from '../ui/sfx';
@@ -217,10 +218,11 @@ export function EmployeeModal({
         <button
           className="btn btn-danger"
           onClick={() => {
-            if (confirm(`Terminate ${e.name}? Everyone loses morale${hasTrait(e, 'nepo') ? ' (a LOT — he is the Boss\'s Nephew)' : ''}.`)) {
+            void askConfirm(`Terminate ${e.name}? Everyone loses morale${hasTrait(e, 'nepo') ? ' (a LOT — he is the Boss\'s Nephew)' : ''}.`, { ok: 'Terminate' }).then((ok) => {
+              if (!ok) return;
               dispatch({ type: 'FIRE', empId: e.id });
               onClose();
-            }
+            });
           }}
         >
           Terminate

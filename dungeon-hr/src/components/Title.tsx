@@ -5,6 +5,7 @@ import { Avatar } from '../ui/Avatar';
 import { downloadText, saveFileName, timeAgo } from '../ui/download';
 import { Icon } from '../ui/Icons';
 import { play } from '../ui/sfx';
+import { askConfirm } from '../ui/confirm';
 
 const LINEUP = ['slime', 'goblin', 'skeleton', 'orc', 'mimic', 'witch', 'vampire', 'dragon'] as const;
 
@@ -28,7 +29,7 @@ export function TitleScreen({ onLoad, onNew }: { onLoad: (slot: Slot, state: Gam
     try {
       const state = importSave(await file.text());
       const slot = importTarget.current;
-      if (slots[slot] && !confirm(`Overwrite slot ${slot} (${slots[slot]!.company})?`)) return;
+      if (slots[slot] && !(await askConfirm(`Overwrite slot ${slot} (${slots[slot]!.company})?`, { ok: 'Overwrite' }))) return;
       saveToSlot(state, slot);
       setSlots(listSlots());
       play('hire');
@@ -151,10 +152,11 @@ export function TitleScreen({ onLoad, onNew }: { onLoad: (slot: Slot, state: Gam
                     aria-label="Delete save"
                     title="Delete this save"
                     onClick={() => {
-                      if (confirm(`Delete "${info.company}" (slot ${slot})? This can't be undone.`)) {
+                      void askConfirm(`Delete "${info.company}" (slot ${slot})? This can't be undone.`, { ok: 'Delete save' }).then((ok) => {
+                        if (!ok) return;
                         deleteSlot(slot);
                         setSlots(listSlots());
-                      }
+                      });
                     }}
                   >
                     <Icon name="close" size={16} />
@@ -174,6 +176,22 @@ export function TitleScreen({ onLoad, onNew }: { onLoad: (slot: Slot, state: Gam
           })}
         </div>
         {error && <div className="alert bad">{error}</div>}
+        <PasteImport
+          onImport={(slot, text) => {
+            try {
+              const state = importSave(text);
+              saveToSlot(state, slot);
+              setSlots(listSlots());
+              setError(null);
+              play('hire');
+              return true;
+            } catch (e) {
+              setError((e as Error).message);
+              play('error');
+              return false;
+            }
+          }}
+        />
         <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => onFile(e.target.files?.[0])} />
 
         <div className="panel panel-pad howto">
@@ -193,6 +211,55 @@ export function TitleScreen({ onLoad, onNew }: { onLoad: (slot: Slot, state: Gam
             <b>5. Grow.</b> Earn gold, level the dungeon, unlock rooms, monsters, tech, and questionable policies.
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PasteImport({ onImport }: { onImport: (slot: Slot, text: string) => boolean }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [slot, setSlot] = useState<Slot>(3);
+  if (!open) {
+    return (
+      <button className="btn btn-ghost btn-sm" onClick={() => setOpen(true)}>
+        Paste a save code
+      </button>
+    );
+  }
+  return (
+    <div className="slot-card" style={{ width: 'min(520px, 100%)' }}>
+      <label className="slot-label" htmlFor="paste-save">
+        Paste a save code
+      </label>
+      <textarea id="paste-save" className="save-code" value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste the code from “Copy save code”" />
+      <div className="row wrap">
+        <label className="xs muted" htmlFor="paste-slot">
+          Into slot
+        </label>
+        <select id="paste-slot" className="title-input" style={{ width: 'auto' }} value={slot} onChange={(e) => setSlot(Number(e.target.value) as Slot)}>
+          {SLOTS.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <span className="grow" />
+        <button className="btn" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+        <button
+          className="btn btn-primary"
+          disabled={!text.trim()}
+          onClick={() => {
+            if (onImport(slot, text)) {
+              setText('');
+              setOpen(false);
+            }
+          }}
+        >
+          Import
+        </button>
       </div>
     </div>
   );
