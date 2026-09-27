@@ -171,7 +171,7 @@ export function FloorPlan({ state, dispatch, onOpenEmployee }: Props) {
       <div className="page-head">
         <div>
           <h2>Floor Plan</h2>
-          <p>Drag staff between rooms, or click a staff member then a room. Click a room to manage it.</p>
+          <p>Tap a staff member, then tap a room to assign them. Tap a room to manage it. On a computer you can also drag.</p>
         </div>
       </div>
 

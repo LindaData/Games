@@ -4,6 +4,15 @@ import { coreStats, hireCost, moraleLabel, powerRating, title, xpToNext } from '
 import type { Employee, EmployeeStatus, SpeciesId, AdvClass, TraitId } from '../game/types';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icons';
+import { isTouch, showInfo } from '../ui/infotip';
+
+const GRADE_TEXT: Record<Grade, string> = {
+  S: 'Perfect fit: ×1.30 effectiveness in this room.',
+  A: 'Great fit: ×1.15 effectiveness in this room.',
+  B: 'Normal fit: ×1.00 effectiveness.',
+  C: 'Poor fit: ×0.85 effectiveness.',
+  D: 'Bad fit: ×0.70 effectiveness.',
+};
 
 export function Modal({ title: t, onClose, children, wide, icon }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean; icon?: ReactNode }) {
   useEffect(() => {
@@ -38,7 +47,15 @@ export function Portrait({ kind, hue, size = 56, dead }: { kind: SpeciesId | Adv
 export function TraitChip({ id }: { id: TraitId }) {
   const t = TRAITS[id];
   return (
-    <span className={`chip tooltip ${t.tone}`} data-tip={t.desc}>
+    <span
+      className={`chip tooltip ${t.tone}`}
+      data-tip={t.desc}
+      onClick={(e) => {
+        if (!isTouch()) return;
+        e.stopPropagation();
+        showInfo(t.name, t.desc);
+      }}
+    >
       {t.name}
     </span>
   );
@@ -46,7 +63,15 @@ export function TraitChip({ id }: { id: TraitId }) {
 
 export function GradeBadge({ g, label }: { g: Grade; label?: string }) {
   return (
-    <span className={`grade grade-${g} tooltip`} data-tip={label ?? `Job suitability: ${g}`}>
+    <span
+      className={`grade grade-${g} tooltip`}
+      data-tip={label ?? `Job suitability: ${g}`}
+      onClick={(e) => {
+        if (!isTouch()) return;
+        e.stopPropagation();
+        showInfo(`Job fit: ${g}`, `${label ? label + '. ' : ''}${GRADE_TEXT[g]}`);
+      }}
+    >
       {g}
     </span>
   );
