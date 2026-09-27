@@ -67,7 +67,9 @@ describe('combat', () => {
   it('teleport, time warp, stasis work', () => {
     let s = mk(enc('4k3/pppppppp/8/8/8/8/8/6N1 w - - 0 1', 'g1'), 'n', { teleport: 1, time_warp: 1, stasis: 1 });
     s = setMode(s, { kind: 'teleport' });
-    expect(getTargets(s).length).toBeGreaterThan(40);
+    // Teleport only reaches empty squares within 3 squares.
+    expect(getTargets(s).every((t) => Math.max(Math.abs(t.to.charCodeAt(0) - 'g'.charCodeAt(0)), Math.abs(Number(t.to[1]) - 1)) <= 3)).toBe(true);
+    expect(getTargets(s).map((t) => t.to)).not.toContain('a1');
     s = playerAct(s, 'd4');
     expect(playerSquare(s)).toBe('d4');
     s = enemyAct(s, { from: 'a7', to: 'a6' }, null, rng);
@@ -145,5 +147,48 @@ describe('squares', () => {
     expect(isDark('h8')).toBe(true);
     expect(isDark('h1')).toBe(false);
     expect(isDark('a8')).toBe(false);
+  });
+});
+
+describe('upgrade tuning', () => {
+  it('reinforced armor only protects on ranks 1-4', () => {
+    const low = mk(enc('4k3/8/8/8/8/3p4/8/6N1 w - - 0 1', 'g1'), 'n', { reinforced_armor: 1 });
+    expect(getTargets(low).find((x) => x.to === 'e2')!.danger).toBe(false);
+    // Knight on g4 can go to e5, which a pawn on d6 attacks: rank 5 is outside the armor.
+    const high = mk(enc('4k3/8/3p4/8/6N1/8/8/8 w - - 0 1', 'g4'), 'n', { reinforced_armor: 1 });
+    expect(getTargets(high).find((x) => x.to === 'e5')!.danger).toBe(true);
+  });
+
+  it('ghost move is short-ranged and cannot capture', () => {
+    let s = mk(enc('4k3/8/8/8/8/8/8/R1n4n w - - 0 1', 'a1'), 'r', { ghost_move: 1 });
+    s = setMode(s, { kind: 'ghost' });
+    const to = getTargets(s).map((t) => t.to);
+    expect(to).toContain('b1');
+    expect(to).toContain('d1');
+    expect(to).not.toContain('c1'); // occupied: no capture while ghosting
+    expect(to).not.toContain('e1'); // beyond 3 squares
+  });
+
+  it('recharging upgrades sit out battles after use, then return', async () => {
+    const { nextCooldowns } = await import('../src/game/run');
+    const e = enc('4k3/8/8/8/8/8/3r4/6N1 w - - 0 1', 'g1');
+    let s = mk(e, 'n', { parry: 1 });
+    s = playerAct(s, 'e2');
+    s = enemyAct(s, { from: 'd2', to: 'e2' }, null, rng); // parried
+    expect(s.hp).toBe(3);
+    const run = { owned: { parry: 1 }, cooldowns: {} } as never;
+    const cd = nextCooldowns(run, s);
+    expect(cd.parry).toBe(1); // recharge 2 => skip the next battle
+    const next = createCombat({ enc: e, piece: 'n', hp: 3, maxHp: 3, owned: { parry: 1 }, runCharges: {}, cooldowns: cd });
+    expect(next.charges.parry).toBe(0);
+    const after = nextCooldowns({ owned: { parry: 1 }, cooldowns: cd } as never, next);
+    expect(after.parry).toBeUndefined(); // available again the battle after
+  });
+
+  it('riposte does not destroy a rook', () => {
+    let s = mk(enc('4k3/8/8/8/8/8/3r4/6N1 w - - 0 1', 'g1'), 'n', { parry: 1, riposte: 1 });
+    s = playerAct(s, 'e2');
+    s = enemyAct(s, { from: 'd2', to: 'e2' }, null, rng);
+    expect(s.fen.split(' ')[0]).toContain('r');
   });
 });

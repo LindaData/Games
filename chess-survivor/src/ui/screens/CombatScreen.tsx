@@ -131,6 +131,8 @@ export function CombatScreen({ run, meta, onCombat, onFinish, onToggleDanger, on
         ? `Captures ${combat.captures} / ${o.count} · Turn ${combat.turn} / ${o.limit}`
         : `Turn ${combat.turn} / ${turnGoal}`;
   const progress = o.kind === 'capture' ? combat.captures / o.count : combat.turn / Math.max(1, turnGoal);
+  /** A recharging upgrade that sits out this whole battle. */
+  const resting = (id: UpgradeId) => !!UPGRADES[id].recharge && (combat.initialCharges?.[id] ?? 1) === 0;
   const actives = ACTIVE_ORDER.filter((id) => (combat.owned[id] ?? 0) > 0);
   const passives = (Object.keys(combat.owned) as UpgradeId[]).filter((id) => !UPGRADES[id].active);
   const safeMoves = targets.filter((t) => !t.danger).length;
@@ -189,8 +191,7 @@ export function CombatScreen({ run, meta, onCombat, onFinish, onToggleDanger, on
                   <UpgradeIcon id={id} size={18} className={`rarity-${d.rarity}`} />
                   <span className="flex-1 text-sm font-medium">{d.name}</span>
                   <span className="text-xs text-[color:var(--muted)]">
-                    {charges}
-                    {d.scope === 'run' ? ' left' : '×'}
+                    {resting(id) ? 'recharging' : `${charges}${d.scope === 'run' ? ' left' : '×'}`}
                   </span>
                 </button>
               );
@@ -203,7 +204,13 @@ export function CombatScreen({ run, meta, onCombat, onFinish, onToggleDanger, on
             <div className="text-xs uppercase tracking-wider text-[color:var(--muted)] mb-2">Passives</div>
             <div className="flex flex-wrap gap-1.5">
               {passives.map((id) => (
-                <UpgradeChip key={id} id={id} count={combat.owned[id] ?? 1} charges={UPGRADES[id].scope !== 'passive' ? combat.charges[id] : undefined} />
+                <UpgradeChip
+                  key={id}
+                  id={id}
+                  count={combat.owned[id] ?? 1}
+                  charges={UPGRADES[id].scope !== 'passive' && !resting(id) ? combat.charges[id] : undefined}
+                  resting={resting(id)}
+                />
               ))}
             </div>
           </div>
@@ -328,7 +335,7 @@ export function CombatScreen({ run, meta, onCombat, onFinish, onToggleDanger, on
             <div className="title-font text-lg mb-1 text-center">Borrowed Crown</div>
             <div className="text-sm text-center text-[color:var(--muted)] mb-3">Move as which piece for one move?</div>
             <div className="flex gap-3">
-              {(['n', 'b', 'r', 'q'] as PieceSymbol[]).map((t) => (
+              {(['n', 'b', 'r'] as PieceSymbol[]).map((t) => (
                 <button
                   key={t}
                   className="w-20 h-24 rounded-xl bg-[#241f12] border border-amber-700/40 hover:border-amber-400 flex flex-col items-center justify-center gap-1"

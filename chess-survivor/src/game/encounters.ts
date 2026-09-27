@@ -141,7 +141,7 @@ function targetSquares(rng: Rng, army: Placement[], piece: PieceSymbol, playerSq
 }
 
 function pickObjective(rng: Rng, p: GenParams, army: Placement[], playerSq: Square): Objective {
-  const s = p.swift ? 2 : 0;
+  const s = p.swift ? 1 : 0;
   if (p.kind === 'elite') {
     return pick(rng, [
       { kind: 'survive', turns: 11 - s } as Objective,
@@ -218,7 +218,7 @@ export function generateEncounter(p: GenParams): EncounterDef {
         for (const f of FILES) army.push({ sq: `${f}6` as Square, type: 'p', color: 'b' }, { sq: `${f}5` as Square, type: 'p', color: 'b' });
         army.push({ sq: 'b8', type: 'n', color: 'b' }, { sq: 'g8', type: 'n', color: 'b' }, { sq: 'c8', type: 'b', color: 'b' }, { sq: 'f8', type: 'b', color: 'b' });
         if (p.loop > 0) army.push({ sq: 'd8', type: 'q', color: 'b' });
-        objective = { kind: 'survive', turns: 12 - (p.swift ? 2 : 0) };
+        objective = { kind: 'survive', turns: 12 - (p.swift ? 1 : 0) };
       } else if (boss === 'grandmaster') {
         army = [];
         const back = 'rnbqkbnr';
@@ -226,16 +226,16 @@ export function generateEncounter(p: GenParams): EncounterDef {
           army.push({ sq: `${FILES[i]}8` as Square, type: back[i] as PieceSymbol, color: 'b' });
           army.push({ sq: `${FILES[i]}7` as Square, type: 'p', color: 'b' });
         }
-        objective = { kind: 'survive', turns: 10 - (p.swift ? 2 : 0) };
+        objective = { kind: 'survive', turns: 10 - (p.swift ? 1 : 0) };
       } else if (boss === 'immortal') {
         army = buildArmy(rng, 8 + p.loop * 4, 5, 0).filter((x) => x.type !== 'q');
         army = army.filter((x) => x.sq !== 'd8');
         army.push({ sq: 'd8', type: 'q', color: 'b' });
         immortalSq = 'd8';
-        objective = { kind: 'survive', turns: 12 - (p.swift ? 2 : 0) };
+        objective = { kind: 'survive', turns: 12 - (p.swift ? 1 : 0) };
       } else {
         army = buildArmy(rng, 14 + p.loop * 4, 6, 1);
-        objective = { kind: 'survive', turns: 12 - (p.swift ? 2 : 0) };
+        objective = { kind: 'survive', turns: 12 - (p.swift ? 1 : 0) };
       }
     } else {
       const budget = 4 + strength * 2 + (p.kind === 'elite' ? 7 : 0);

@@ -10,6 +10,7 @@
 import type { Square } from 'chess.js';
 import { BITS, FastBoard, type RawMove } from '../chess/fast';
 import { to0x88, from0x88 } from '../chess/squares';
+import { ARMOR_MAX_RANK } from '../chess/rules';
 import { createRng, gaussian } from '../core/rng';
 import type { AiProfile } from './profiles';
 
@@ -72,11 +73,16 @@ export class Hunter {
 
   // ---- move generation with Chess Survivor rule mods ----------------------
 
+  /** Reinforced Armor only protects on the player's own half (ranks 1–4). */
+  private armorOn(): boolean {
+    return this.req.armor && 8 - (this.player >> 4) <= ARMOR_MAX_RANK;
+  }
+
   private blackMoves(): RawMove[] {
     const ms = this.fb.moves(true);
     const out: RawMove[] = [];
     for (const m of ms) {
-      if (this.req.armor && m.piece === 'p' && m.to === this.player) continue;
+      if (m.piece === 'p' && m.to === this.player && this.armorOn()) continue;
       if (m.promotion && m.promotion !== 'q' && m.promotion !== 'n') continue;
       out.push(m);
     }
@@ -203,7 +209,7 @@ export class Hunter {
     const kingPlayer = this.req.playerIsKing;
     const attackersOfPlayer = () => {
       const list = fb.attackers('b', p);
-      return this.req.armor ? list.filter((a) => fb.pieceAt(to0x88(a as Square))?.type !== 'p') : list;
+      return this.armorOn() ? list.filter((a) => fb.pieceAt(to0x88(a as Square))?.type !== 'p') : list;
     };
 
     if (fb.turn === 'b') {

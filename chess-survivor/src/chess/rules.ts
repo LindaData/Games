@@ -30,13 +30,21 @@ export interface GameMove {
 
 /** Rule modifications currently in force (from upgrades or bosses). */
 export interface RuleMods {
-  /** Reinforced Armor: enemy pawns cannot capture the player. */
+  /** Reinforced Armor: enemy pawns cannot capture the player on ranks 1–4. */
   armor: boolean;
   /** The Immortal boss piece: can only be captured while standing on a dark square. */
   immortalSq: Square | null;
 }
 
 export const NO_MODS: RuleMods = { armor: false, immortalSq: null };
+
+/** Highest rank on which Reinforced Armor still protects the player. */
+export const ARMOR_MAX_RANK = 4;
+
+/** Does Reinforced Armor stop enemy pawns capturing the player on `sq`? */
+export function armorProtects(mods: RuleMods, sq: Square | null): boolean {
+  return mods.armor && !!sq && rankOf(sq) <= ARMOR_MAX_RANK;
+}
 
 export function makeChess(fen: string): Chess {
   return new Chess(fen, { skipValidation: true });
@@ -148,7 +156,7 @@ export function enemyMoves(fen: string, playerSq: Square | null, mods: RuleMods)
   return chess
     .moves({ verbose: true })
     .map(toGameMove)
-    .filter((m) => !(mods.armor && m.piece === 'p' && m.to === playerSq));
+    .filter((m) => !(armorProtects(mods, playerSq) && m.piece === 'p' && m.to === playerSq));
 }
 
 export interface ApplyResult {
@@ -170,7 +178,7 @@ export function capturersOf(fen: string, playerSq: Square, mods: RuleMods): Squa
   fb.withTurn('b', () => {
     for (const m of fb.moves(true)) {
       if (m.to !== target) continue;
-      if (mods.armor && m.piece === 'p') continue;
+      if (armorProtects(mods, playerSq) && m.piece === 'p') continue;
       out.add(sqName(m.from));
     }
   });
@@ -190,7 +198,7 @@ export function enemyAttackMap(fen: string, mods: RuleMods): Set<Square> {
   for (const sq of ALL_SQUARES) {
     const i = to0x88(sq);
     if (!fb.attacked('b', i)) continue;
-    if (mods.armor) {
+    if (armorProtects(mods, sq)) {
       const attackers = fb.attackers('b', i);
       if (attackers.every((a) => fb.pieceAt(to0x88(a as Square))?.type === 'p')) continue;
     }
@@ -227,21 +235,25 @@ function validLanding(fen: string, sq: Square, type: PieceSymbol, mods: RuleMods
   return true;
 }
 
-/** Ghost Move: move along your movement lines as if the board were empty (sliders), or up to two squares (leapers). */
+export const GHOST_SLIDE_RANGE = 3;
+export const TELEPORT_RANGE = 3;
+
+/** Ghost Move: slide up to 3 squares through pieces (sliders) or step up to two squares (leapers); empty landings only. */
 export function ghostTargets(fen: string, playerSq: Square, type: PieceSymbol, mods: RuleMods): Square[] {
   const f = fileOf(playerSq);
   const r = rankOf(playerSq);
   const out = new Set<Square>();
+  const empty = (s: Square) => !pieceAt(fen, s) && validLanding(fen, s, type, mods);
   if (type === 'r' || type === 'b' || type === 'q') {
     for (const [df, dr] of DIRS[type]) {
-      for (let k = 1; k < 8; k++) {
+      for (let k = 1; k <= GHOST_SLIDE_RANGE; k++) {
         const s = toSquare(f + df * k, r + dr * k);
         if (!s) break;
-        if (validLanding(fen, s, type, mods)) out.add(s);
+        if (empty(s)) out.add(s);
       }
     }
   } else if (type === 'p') {
-    for (const k of [1, 2, 3]) {
+    for (const k of [1, 2]) {
       const s = toSquare(f, r + k);
       if (s && !pieceAt(fen, s)) out.add(s);
     }
@@ -250,16 +262,17 @@ export function ghostTargets(fen: string, playerSq: Square, type: PieceSymbol, m
       for (let dr = -2; dr <= 2; dr++) {
         if (!df && !dr) continue;
         const s = toSquare(f + df, r + dr);
-        if (s && validLanding(fen, s, type, mods)) out.add(s);
+        if (s && empty(s)) out.add(s);
       }
   }
   return filterKingSafe(fen, playerSq, type, [...out]);
 }
 
-/** Teleport: any empty square (a pawn may not land on the first or last rank). */
+/** Teleport: any empty square within 3 squares (a pawn may not land on the first or last rank). */
 export function teleportTargets(fen: string, playerSq: Square, type: PieceSymbol): Square[] {
   const occupied = new Set(boardFromFen(fen).map((p) => p.sq));
-  const out = ALL_SQUARES.filter((s) => !occupied.has(s) && !(type === 'p' && (rankOf(s) === 1 || rankOf(s) === 8)));
+  const near = (s: Square) => Math.max(Math.abs(fileOf(s) - fileOf(playerSq)), Math.abs(rankOf(s) - rankOf(playerSq))) <= TELEPORT_RANGE;
+  const out = ALL_SQUARES.filter((s) => near(s) && !occupied.has(s) && !(type === 'p' && (rankOf(s) === 1 || rankOf(s) === 8)));
   return filterKingSafe(fen, playerSq, type, out);
 }
 

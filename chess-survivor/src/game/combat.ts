@@ -97,6 +97,8 @@ export interface CombatState {
   maxHp: number;
   /** remaining uses of charge-based upgrades (encounter- and run-scoped) */
   charges: Partial<Record<UpgradeId, number>>;
+  /** charges at the start of the battle (to tell which recharging upgrades were used) */
+  initialCharges: Partial<Record<UpgradeId, number>>;
   owned: Partial<Record<UpgradeId, number>>;
   mode: ActionMode;
   history: Snapshot[];
@@ -205,6 +207,8 @@ export interface CombatInit {
   maxHp: number;
   owned: Partial<Record<UpgradeId, number>>;
   runCharges: Partial<Record<UpgradeId, number>>;
+  /** Battles each recharging upgrade must still sit out. */
+  cooldowns?: Partial<Record<UpgradeId, number>>;
 }
 
 export function createCombat(init: CombatInit): CombatState {
@@ -215,11 +219,13 @@ export function createCombat(init: CombatInit): CombatState {
   const charges: Partial<Record<UpgradeId, number>> = {};
   for (const [id, count] of Object.entries(init.owned) as [UpgradeId, number][]) {
     const def = UPGRADES[id];
-    if (def.scope === 'encounter') charges[id] = def.stackable ? count : 1;
+    if (def.scope !== 'encounter') continue;
+    charges[id] = (init.cooldowns?.[id] ?? 0) > 0 ? 0 : def.stackable ? count : 1;
   }
   for (const [id, count] of Object.entries(init.runCharges) as [UpgradeId, number][]) charges[id] = count;
   const kingSq = boardFromFen(enc.fen).find((p) => p.type === 'k' && p.color === 'b')?.sq ?? null;
   const s: CombatState = {
+    initialCharges: { ...charges },
     enc,
     fen: enc.fen,
     ids,
@@ -309,7 +315,7 @@ function snapshot(s: CombatState): Snapshot {
   return { fen: s.fen, ids: s.ids, turn: s.turn, captures: s.captures, playerType: s.playerType, lastMove: s.lastMove };
 }
 
-function onPlayerCapture(s: CombatState, capturedId: number | null, sq: Square): void {
+function onPlayerCapture(s: CombatState, capturedId: number | null, sq: Square, capturedType?: PieceSymbol): void {
   if (capturedId === null) return;
   s.captures++;
   pushFx(s, 'capture', 'good', sq);
@@ -323,7 +329,8 @@ function onPlayerCapture(s: CombatState, capturedId: number | null, sq: Square):
     s.mirrorId = null;
     log(s, 'You shatter your reflection.', 'good');
   }
-  if (has(s, 'bloodlust') && (s.charges.bloodlust ?? 0) > 0 && s.hp < s.maxHp) {
+  const heavy = capturedType === 'r' || capturedType === 'q';
+  if (heavy && has(s, 'bloodlust') && (s.charges.bloodlust ?? 0) > 0 && s.hp < s.maxHp) {
     s.charges.bloodlust = 0;
     s.hp++;
     pushFx(s, 'heal', 'good', sq, '+1 HP');
@@ -355,7 +362,7 @@ export function playerAct(prev: CombatState, to: Square, promotion: PieceSymbol 
       log(s, `Promotion! You are now a ${PIECE_NAMES[move.promotion]} for this battle.`, 'good');
     }
     if (moved.capturedId !== null) log(s, `You capture the ${PIECE_NAMES[move.captured ?? 'p']} on ${moved.capturedSq}.`, 'good');
-    onPlayerCapture(s, moved.capturedId, to);
+    onPlayerCapture(s, moved.capturedId, to, move.captured);
   } else {
     const type = s.playerType;
     const promoted = type === 'p' && rankOf(to) === 8;
@@ -374,7 +381,7 @@ export function playerAct(prev: CombatState, to: Square, promotion: PieceSymbol 
       pushFx(s, 'promote', 'good', to, 'Queen');
     }
     if (capturedPiece) log(s, `You capture the ${PIECE_NAMES[capturedPiece.type]} on ${to}.`, 'good');
-    onPlayerCapture(s, moved.capturedId, to);
+    onPlayerCapture(s, moved.capturedId, to, capturedPiece?.type);
   }
   if (s.phase === 'won') return s;
 
@@ -513,7 +520,8 @@ function respawnPlayer(s: CombatState, rng: () => number): boolean {
 
 function removeAttacker(s: CombatState, sq: Square): void {
   const piece = boardFromFen(s.fen).find((p) => p.sq === sq);
-  if (!piece || piece.type === 'k') return;
+  // Riposte only fells light attackers: pawns, knights and bishops.
+  if (!piece || !['p', 'n', 'b'].includes(piece.type)) return;
   // The Immortal shrugs off ripostes.
   if (s.ids[sq] === s.immortalId) return;
   s.fen = editFen(s.fen, (ps) => ps.filter((p) => p.sq !== sq), 'w');
@@ -731,6 +739,14 @@ export function dangerInfo(s: CombatState): { attackers: Square[]; inDanger: boo
 }
 
 /** Values written back to the run when the battle ends. */
+/** Recharging upgrades spent in this battle. */
+export function usedRecharging(s: CombatState): UpgradeId[] {
+  const initial = s.initialCharges ?? {}; // absent in battles saved before recharges existed
+  return (Object.keys(initial) as UpgradeId[]).filter(
+    (id) => UPGRADES[id].recharge && (initial[id] ?? 0) > 0 && (s.charges[id] ?? 0) < (initial[id] ?? 0),
+  );
+}
+
 export function runChargesAfter(s: CombatState): Partial<Record<UpgradeId, number>> {
   const out: Partial<Record<UpgradeId, number>> = {};
   for (const id of Object.keys(s.charges) as UpgradeId[]) if (UPGRADES[id].scope === 'run') out[id] = s.charges[id];

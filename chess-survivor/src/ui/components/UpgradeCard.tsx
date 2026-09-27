@@ -5,6 +5,12 @@ export const RARITY_COLOR = { common: '#a3a3a3', uncommon: '#60a5fa', rare: '#c0
 
 const SCOPE_TEXT = { run: 'Once per run', encounter: 'Every battle', passive: 'Passive' } as const;
 
+function scopeText(id: UpgradeId): string {
+  const d = UPGRADES[id];
+  if (d.recharge) return `Every ${d.recharge} battles`;
+  return d.active ? `Active · ${SCOPE_TEXT[d.scope]}` : SCOPE_TEXT[d.scope];
+}
+
 export function UpgradeCard({ id, onClick, footer, disabled }: { id: UpgradeId; onClick?: () => void; footer?: React.ReactNode; disabled?: boolean }) {
   const d = UPGRADES[id];
   return (
@@ -21,7 +27,7 @@ export function UpgradeCard({ id, onClick, footer, disabled }: { id: UpgradeId; 
         <div>
           <div className="font-semibold text-[15px]">{d.name}</div>
           <div className={`text-[11px] uppercase tracking-wider rarity-${d.rarity}`}>
-            {d.rarity} · {d.active ? 'Active' : SCOPE_TEXT[d.scope]}
+            {d.rarity} · {scopeText(id)}
           </div>
         </div>
       </div>
@@ -31,7 +37,7 @@ export function UpgradeCard({ id, onClick, footer, disabled }: { id: UpgradeId; 
   );
 }
 
-export function UpgradeChip({ id, count, charges }: { id: UpgradeId; count: number; charges?: number }) {
+export function UpgradeChip({ id, count, charges, resting }: { id: UpgradeId; count: number; charges?: number; resting?: boolean | number }) {
   const d = UPGRADES[id];
   return (
     <span className="chip" title={`${d.name}: ${d.desc}`} style={{ color: RARITY_COLOR[d.rarity] }}>
@@ -39,6 +45,9 @@ export function UpgradeChip({ id, count, charges }: { id: UpgradeId; count: numb
       <span className="text-[color:var(--text)]">{d.name}</span>
       {count > 1 && <span className="opacity-70">×{count}</span>}
       {charges !== undefined && <span className="opacity-70">({charges})</span>}
+      {!!resting && (
+        <span className="opacity-60 italic">{typeof resting === 'number' ? `recharging: ${resting} battle${resting === 1 ? '' : 's'}` : 'recharging'}</span>
+      )}
     </span>
   );
 }

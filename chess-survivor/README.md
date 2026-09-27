@@ -19,7 +19,7 @@ Other scripts:
 | `npm run build` | Typecheck + production build to `dist/` |
 | `npm test` | Unit tests plus headless full-run simulations for all six pieces |
 | `npm run typecheck` | TypeScript only |
-| `npm run balance` | Opt-in balance harness: a simple bot plays battles against the real AI budgets and reports hits taken per battle |
+| `npm run balance` | Opt-in balance harness: a simple bot plays battles against the real AI budgets and reports hits taken per battle, plus how much a defensive upgrade kit helps |
 
 ## Game rules
 
@@ -74,26 +74,28 @@ A Pawn that reaches the 8th rank promotes, and keeps the new piece for the rest 
 
 ### Upgrades
 
-Charges refill every battle unless the scope says *run*. Run-scoped charges are consumed permanently.
+Upgrades are tuned to give **a slight edge, not a safety net**. The strong ones recharge: after you use one, it sits out the following battle(s). Run-scoped charges are consumed permanently.
 
-| Upgrade | Scope | Effect |
+| Upgrade | How often | Effect |
 | --- | --- | --- |
-| Second Life | run | The first capture that would take you to 0 HP leaves you at 1 HP instead |
-| Ghost Move | run (active) | Move through occupied squares: sliders ignore blockers, other pieces step up to 2 squares |
-| Knight's Instinct | battle | Automatically dodge the first capture each battle and leap to a safe square |
-| Reinforced Armor | passive | Enemy pawns cannot capture you (the enemy's move list is filtered) |
-| Time Warp | battle (active) | Rewind one full turn (your move and the enemy's reply) |
-| Borrowed Crown | battle (active) | For one move, move as a Knight, Bishop, Rook or Queen |
-| Teleport | battle (active) | Move to any empty square |
-| Parry | battle | Survive a capture; the attacker is knocked back and loses its turn |
-| Riposte | passive | Parry and dodge also destroy the attacker (never a king) |
-| Stasis | battle (active) | The enemy skips its next turn |
-| Smoke Bomb | battle (active) | The enemy's next move is random |
-| Bloodlust | battle | Your first capture heals 1 HP |
-| Iron Heart | passive | +1 max HP and heal 1 |
-| Bounty Hunter | passive | +8 gold per capture |
-| Swift Feet | passive | Survival objectives need 2 fewer turns |
-| Opening Theory | passive | +50% battle gold |
+| Second Life | once per run | The first capture that would take you to 0 HP leaves you at 1 HP instead |
+| Ghost Move | once per run (active) | Slide up to 3 squares through pieces (other pieces: step up to 2); must land on an empty square |
+| Knight's Instinct | every 3 battles | Dodge the first capture of the battle and leap to a safe square |
+| Reinforced Armor | passive | Enemy pawns cannot capture you while you are on ranks 1–4 |
+| Time Warp | every 3 battles (active) | Rewind one full turn (your move and the enemy's reply) |
+| Borrowed Crown | every 2 battles (active) | For one move, move as a Knight, Bishop or Rook |
+| Teleport | every 3 battles (active) | Jump to an empty square within 3 squares |
+| Parry | every 2 battles | Survive a capture; the attacker is knocked back and loses its turn |
+| Riposte | passive | Parry and dodge also destroy an attacking pawn, knight or bishop |
+| Stasis | every 2 battles (active) | The enemy skips its next turn |
+| Smoke Bomb | every battle (active) | The enemy's next move is random (it can still capture you) |
+| Bloodlust | every battle | Capturing a Rook or Queen heals 1 HP |
+| Iron Heart | passive | +1 max HP (no heal) |
+| Bounty Hunter | passive | +4 gold per capture |
+| Swift Feet | passive | Survival objectives need 1 fewer turn |
+| Opening Theory | passive | +20% battle gold |
+
+Measured with `npm run balance`, a full defensive kit (Knight's Instinct, Parry, Armor and Swift Feet) cuts hits taken over six battles by roughly 12–20% for a simple bot. One upgrade on its own helps less.
 
 *Design note:* the brief described Time Warp as "force the AI to repeat its previous move". I implemented it as a one-turn rewind, because that is unambiguous and feels good to use. Stasis and Smoke Bomb cover "mess with the enemy's next move".
 

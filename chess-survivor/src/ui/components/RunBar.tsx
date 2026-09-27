@@ -44,7 +44,7 @@ export function RunBar({ run, onMenu }: { run: RunState; onMenu?: () => void }) 
       </div>
       <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
         {owned.map(([id, n]) => (
-          <UpgradeChip key={id} id={id} count={n} charges={run.runCharges[id]} />
+          <UpgradeChip key={id} id={id} count={n} charges={run.runCharges[id]} resting={run.cooldowns?.[id]} />
         ))}
       </div>
       {onMenu && (

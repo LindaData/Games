@@ -1,7 +1,7 @@
 /** Run state and roguelike progression: map travel, rewards, shops, rests, events, acts. */
 import type { PieceSymbol } from 'chess.js';
 import { createRng, randInt, shuffle, weightedPick, type Rng } from '../core/rng';
-import { createCombat, runChargesAfter, type CombatState, type Outcome } from './combat';
+import { createCombat, runChargesAfter, usedRecharging, type CombatState, type Outcome } from './combat';
 import { generateEncounter } from './encounters';
 import { eventById, randomEvent } from './events';
 import { generateMap, nodeById, type ActMap } from './map';
@@ -38,6 +38,8 @@ export interface RunState {
   gold: number;
   owned: Partial<Record<UpgradeId, number>>;
   runCharges: Partial<Record<UpgradeId, number>>;
+  /** Battles each recharging upgrade must still sit out (missing in pre-recharge saves). */
+  cooldowns?: Partial<Record<UpgradeId, number>>;
   unlocked: UpgradeId[];
   stats: { battlesWon: number; elitesWon: number; bossesWon: number; turns: number; captures: number; checkmates: number };
   screen: Screen;
@@ -80,6 +82,7 @@ export function newRun(piece: PieceSymbol, mode: ModeId, meta: MetaState, seed: 
     gold: 0,
     owned: {},
     runCharges: {},
+    cooldowns: {},
     unlocked: [...meta.upgrades],
     stats: { battlesWon: 0, elitesWon: 0, bossesWon: 0, turns: 0, captures: 0, checkmates: 0 },
     screen: 'map',
@@ -117,10 +120,7 @@ export function offerUpgrades(run: RunState, rng: Rng, count: number, minRarity:
 export function addUpgrade(run: RunState, id: UpgradeId): RunState {
   const d = UPGRADES[id];
   const next: RunState = { ...run, owned: { ...run.owned, [id]: (run.owned[id] ?? 0) + 1 }, runCharges: { ...run.runCharges } };
-  if (id === 'iron_heart') {
-    next.maxHp += 1;
-    next.hp = Math.min(next.maxHp, next.hp + 1);
-  }
+  if (id === 'iron_heart') next.maxHp += 1;
   if (d.scope === 'run') next.runCharges[id] = (next.runCharges[id] ?? 0) + 1;
   return next;
 }
@@ -152,7 +152,7 @@ export function enterNode(prev: RunState, nodeId: string): RunState {
         loop: loopOf(run.act),
         swift: !!run.owned.swift,
       });
-      const combat = createCombat({ enc, piece: run.piece, hp: run.hp, maxHp: run.maxHp, owned: run.owned, runCharges: run.runCharges });
+      const combat = createCombat({ enc, piece: run.piece, hp: run.hp, maxHp: run.maxHp, owned: run.owned, runCharges: run.runCharges, cooldowns: run.cooldowns });
       return { ...run, screen: 'combat', combat };
     }
     case 'event':
@@ -184,6 +184,19 @@ export function syncCombat(run: RunState, combat: CombatState): RunState {
   return { ...run, combat };
 }
 
+/** Tick recharge timers after a battle: spent upgrades start cooling down, others count down. */
+export function nextCooldowns(run: RunState, c: CombatState): Partial<Record<UpgradeId, number>> {
+  const used = new Set(usedRecharging(c));
+  const out: Partial<Record<UpgradeId, number>> = {};
+  for (const id of Object.keys(run.owned) as UpgradeId[]) {
+    const recharge = UPGRADES[id].recharge;
+    if (!recharge) continue;
+    const left = used.has(id) ? recharge - 1 : Math.max(0, (run.cooldowns?.[id] ?? 0) - 1);
+    if (left > 0) out[id] = left;
+  }
+  return out;
+}
+
 export function finishCombat(prev: RunState): RunState {
   const c = prev.combat;
   if (!c || (c.phase !== 'won' && c.phase !== 'lost')) return prev;
@@ -191,6 +204,7 @@ export function finishCombat(prev: RunState): RunState {
     ...prev,
     hp: Math.max(0, c.hp),
     runCharges: { ...prev.runCharges, ...runChargesAfter(c) },
+    cooldowns: nextCooldowns(prev, c),
     stats: {
       ...prev.stats,
       turns: prev.stats.turns + c.turn,
@@ -225,9 +239,9 @@ export function finishCombat(prev: RunState): RunState {
     gold += 60;
     lines.push('You slew the Immortal: +60 gold.');
   }
-  if (run.owned.scholar) gold = Math.floor(gold * 1.5);
+  if (run.owned.scholar) gold = Math.floor(gold * 1.2);
   if (run.owned.bounty && c.captures) {
-    const b = c.captures * 8 * (run.owned.bounty ?? 1);
+    const b = c.captures * 4 * (run.owned.bounty ?? 1);
     gold += b;
     lines.push(`Bounty: +${b} gold.`);
   }

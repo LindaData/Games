@@ -100,8 +100,8 @@ export const EVENTS: EventDef[] = [
       },
       {
         label: 'Sharpen (40 gold)',
-        hint: 'Gain Parry (+1 charge per battle).',
-        available: (r) => r.gold >= 40,
+        hint: 'Gain Parry.',
+        available: (r) => r.gold >= 40 && !r.owned.parry,
         apply: (run) => ({ run: addUpgrade({ ...run, gold: run.gold - 40 }, 'parry'), result: 'Your guard is quicker. Parry gained.' }),
       },
       leave,
@@ -115,6 +115,7 @@ export const EVENTS: EventDef[] = [
       {
         label: 'Accept its gift',
         hint: 'Gain Second Life. Lose 20 gold.',
+        available: (r) => !r.owned.second_life,
         apply: (run) => ({ run: addUpgrade({ ...run, gold: Math.max(0, run.gold - 20) }, 'second_life'), result: 'Its courage becomes yours. Second Life gained.' }),
       },
       { label: 'Bury it with honour', hint: 'Heal 1 HP.', apply: (run) => ({ run: { ...run, hp: Math.min(run.maxHp, run.hp + 1) }, result: 'You feel at peace. +1 HP.' }) },
