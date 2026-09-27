@@ -2,6 +2,7 @@ import { useEffect, useState, type DragEvent } from 'react';
 import { OFFICE_ROOMS, ROOMS, ROUTE_ROOMS, officeSlotsFor, routeSlotsFor, GRADE_MULT } from '../game/data';
 import { getRoom, headcountLimit, roomAt, roomCapacity, roomStaff, routeOrder, upgradeCost, buildCost, vaultRoom } from '../game/dungeon';
 import { powerRating, suitability, title } from '../game/employees';
+import { bond } from '../game/relations';
 import type { Action } from '../game/state';
 import type { Employee, GameState, Room, Zone } from '../game/types';
 import { Avatar } from '../ui/Avatar';
@@ -85,6 +86,7 @@ export function FloorPlan({ state, dispatch, onOpenEmployee }: Props) {
       <div
         key={room.id}
         className={`room ${room.type === 'vault' ? 'vault' : ''} ${dragOver === key ? 'drop-ok' : ''}`}
+        data-tour-target={room.type === 'vault' ? 'vault' : undefined}
         onClick={() => onRoomClick(room)}
         {...(room.type !== 'barracks' ? dropProps(room.id, key) : {})}
       >
@@ -93,7 +95,7 @@ export function FloorPlan({ state, dispatch, onOpenEmployee }: Props) {
           <div className="room-icon" style={{ color: def.color }}>
             <Icon name={room.type} size={18} />
           </div>
-          <div>
+          <div className="grow" style={{ minWidth: 0 }}>
             <div className="room-name">{def.name}</div>
             <div className="room-lvl">
               Lv {room.level}/{def.maxLevel}
@@ -101,6 +103,7 @@ export function FloorPlan({ state, dispatch, onOpenEmployee }: Props) {
             </div>
           </div>
         </div>
+        <ChemistryBadge state={state} staff={staff} />
         <div className="room-effect">{def.effect(room.level)}</div>
         {cap > 0 ? (
           <div className="room-staff">
@@ -146,6 +149,7 @@ export function FloorPlan({ state, dispatch, onOpenEmployee }: Props) {
     return (
       <button
         key={`${zone}-${slot}`}
+        data-tour-target="empty-slot"
         className="room empty"
         onClick={() => {
           setBuildAt({ zone, slot });
@@ -226,7 +230,7 @@ export function FloorPlan({ state, dispatch, onOpenEmployee }: Props) {
         <div className="section-title">
           <Icon name="users" /> The Bench <span className="sub">Unassigned staff recover fatigue but earn nothing and slowly lose morale. Drop staff here to unassign.</span>
         </div>
-        <div className={`bench ${dragOver === 'bench' ? 'drop-ok' : ''}`} {...dropProps(null, 'bench')}>
+        <div className={`bench ${dragOver === 'bench' ? 'drop-ok' : ''}`} data-tour-target="bench" {...dropProps(null, 'bench')}>
           {bench.length === 0 && <span className="dim small" style={{ alignSelf: 'center' }}>Everyone has a job. Very efficient. Slightly dystopian.</span>}
           {bench.map((e) => (
             <div
@@ -396,6 +400,7 @@ function RoomPanel({
                     <div className="xs muted">
                       {title(e)} · Lv {e.level} · {where ? ROOMS[where.type].name : 'Bench'}
                       {e.status !== 'active' && <span className="bad"> · {e.status}</span>}
+                      <BondHints state={state} emp={e} staff={staff} />
                     </div>
                   </div>
                   <GradeBadge g={suitability(e.species, room.type)} />
@@ -445,5 +450,43 @@ function BuildModal({ state, zone, onClose, onBuild }: { state: GameState; zone:
         })}
       </div>
     </Modal>
+  );
+}
+
+function ChemistryBadge({ state, staff }: { state: GameState; staff: Employee[] }) {
+  let friends = 0;
+  let rivals = 0;
+  for (let i = 0; i < staff.length; i++) {
+    for (let j = i + 1; j < staff.length; j++) {
+      const b = bond(state, staff[i].id, staff[j].id);
+      if (b === 'friend') friends += 1;
+      if (b === 'rival') rivals += 1;
+    }
+  }
+  if (!friends && !rivals) return null;
+  return (
+    <div className="room-chem">
+      {friends > 0 && (
+        <span className="chip good tooltip" data-tip="Friends working together: +8% each">
+          ♥ {friends}
+        </span>
+      )}
+      {rivals > 0 && (
+        <span className="chip bad tooltip" data-tip="Rivals stuck together: −8% each, and feuds">
+          ⚡ {rivals}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function BondHints({ state, emp, staff }: { state: GameState; emp: Employee; staff: Employee[] }) {
+  const friends = staff.filter((o) => bond(state, emp.id, o.id) === 'friend');
+  const rivals = staff.filter((o) => bond(state, emp.id, o.id) === 'rival');
+  return (
+    <>
+      {friends.length > 0 && <span className="good"> · ♥ friends with {friends.map((f) => f.name).join(', ')}</span>}
+      {rivals.length > 0 && <span className="bad"> · ⚡ rival of {rivals.map((r) => r.name).join(', ')}</span>}
+    </>
   );
 }

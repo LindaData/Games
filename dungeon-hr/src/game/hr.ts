@@ -2,6 +2,8 @@ import { SPECIES } from './data';
 import { hasRoom, hrRep } from './dungeon';
 import { canPromote, coreStats, hasTrait, maxHp, nextId, title } from './employees';
 import { chance, clamp, pick, randInt, shuffle, type Rng } from './rng';
+import { adjustRel, departureFallout, pruneRelations } from './relations';
+import { storyCandidates, storyOptions, resolveStory } from './stories';
 import type { Employee, GameState, HrEvent, HrOption, MemorialEntry } from './types';
 
 const UNION_DEMANDS = [
@@ -131,7 +133,11 @@ export function generateHrEvents(state: GameState, rng: Rng, ctx: { mvpId?: stri
     candidates.push(() => push({ kind: 'news', from: 'Corporate Communications', title: n.title, body: n.body }));
   }
 
-  // Keep the inbox manageable: resignations plus up to three other memos.
+  const story = storyCandidates(state, rng, used);
+  candidates.push(...story.optional.map((ev) => () => push(ev)));
+  for (const ev of story.forced) push(ev);
+
+  // Keep the inbox manageable: urgent memos plus up to three others.
   for (const c of shuffle(rng, candidates).slice(0, Math.max(1, 3 - out.length))) c();
   return out;
 }
@@ -214,21 +220,25 @@ export function hrOptions(state: GameState, ev: HrEvent): HrOption[] {
     }
     case 'news':
       return [{ id: 'ok', label: 'Acknowledge', desc: 'File under "Noted".' }];
+    default:
+      return storyOptions(state, ev);
   }
 }
 
-function addMorale(e: Employee | undefined, d: number) {
+export function addMorale(e: Employee | undefined, d: number) {
   if (e) e.morale = clamp(e.morale + d, 0, 100);
 }
 
-function allMorale(state: GameState, d: number) {
+export function allMorale(state: GameState, d: number) {
   for (const e of state.employees) addMorale(e, d);
 }
 
-export function removeEmployee(state: GameState, id: string, kind: MemorialEntry['kind'], cause: string) {
+export function removeEmployee(state: GameState, id: string, kind: MemorialEntry['kind'], cause: string, notes: string[] = []) {
   const e = empById(state, id);
   if (!e) return;
+  departureFallout(state, e, kind === 'fatality', notes);
   state.employees = state.employees.filter((x) => x.id !== id);
+  pruneRelations(state);
   state.memorial.unshift({ name: e.name, species: e.species, week: state.week, cause, kind });
   if (state.memorial.length > 60) state.memorial.length = 60;
 }
@@ -383,6 +393,7 @@ export function resolveHr(state: GameState, ev: HrEvent, option: string, rng: Rn
       return `${e.name} hands in their badge and leaves a 1-star review on Dungeondoor.`;
     case 'dispute': {
       const b = empById(state, ev.empId2);
+      if (e && b) adjustRel(state, e.id, b.id, option === 'sideA' || option === 'sideB' ? -20 : 0);
       if (option === 'sideA') {
         addMorale(e, 10);
         addMorale(b, -15);
@@ -397,20 +408,24 @@ export function resolveHr(state: GameState, ev: HrEvent, option: string, rng: Rn
         if (rep || chance(rng, 0.5)) {
           addMorale(e, rep ? 8 : 5);
           addMorale(b, rep ? 8 : 5);
+          if (e && b) adjustRel(state, e.id, b.id, 20);
           return `A trust-fall exercise resolves the dispute. Nobody was dropped (on purpose).`;
         }
         addMorale(e, -8);
         addMorale(b, -8);
+        if (e && b) adjustRel(state, e.id, b.id, -15);
         return 'The mediation session becomes a second, larger dispute.';
       }
       addMorale(e, -10);
       addMorale(b, -10);
       if (chance(rng, 0.4)) {
+        if (e && b) adjustRel(state, e.id, b.id, 45);
         for (const x of [e, b]) {
           if (x && !x.traits.includes('teamplayer') && !x.traits.includes('loner')) x.traits.push('teamplayer');
         }
         return 'Forced proximity works! They are now inseparable. Both gain Team Player.';
       }
+      if (e && b) adjustRel(state, e.id, b.id, -20);
       return 'They build a wall of ledgers down the middle of the desk.';
     }
     case 'review':
@@ -473,6 +488,8 @@ export function resolveHr(state: GameState, ev: HrEvent, option: string, rng: Rn
     }
     case 'news':
       return 'Filed.';
+    default:
+      return resolveStory(state, ev, option, rng);
   }
 }
 

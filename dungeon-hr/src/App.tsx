@@ -1,36 +1,42 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { Intel, TopBar } from './components/Chrome';
+import { Coach, Tip, type CoachTab } from './components/Coach';
 import { Memorial, Policies, Research } from './components/Company';
 import { FloorPlan } from './components/FloorPlan';
+import { Handbook } from './components/Handbook';
 import { InvasionView } from './components/Invasion';
-import { GameOver, HrInbox, Report, TitleScreen } from './components/Phases';
+import { GameOver, HrInbox, Report } from './components/Phases';
 import { EmployeeModal, Recruitment, StaffDirectory } from './components/Staff';
+import { TitleScreen } from './components/Title';
 import { Modal } from './components/common';
 import { headcountLimit } from './game/dungeon';
+import { deleteSlot, exportSave, saveToSlot, type Slot } from './game/save';
 import { simulateInvasion, type SimResult } from './game/sim';
-import { clearSave, loadGame, newGame, reducer, saveGame } from './game/state';
+import { newGame, reducer } from './game/state';
 import type { GameState } from './game/types';
+import { downloadText, saveFileName } from './ui/download';
 import { Icon } from './ui/Icons';
 import { play } from './ui/sfx';
 
-type Tab = 'floor' | 'staff' | 'recruit' | 'rnd' | 'policies' | 'memorial';
+type Tab = CoachTab;
 
 function initialState(): GameState {
   return { ...newGame(), phase: 'title' };
 }
 
 export default function App() {
-  const [saved, setSaved] = useState<GameState | null>(() => loadGame());
+  const [slot, setSlot] = useState<Slot | null>(null);
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const [tab, setTab] = useState<Tab>('floor');
   const [sim, setSim] = useState<SimResult | null>(null);
   const [openEmp, setOpenEmp] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
+  const [help, setHelp] = useState(false);
   const [toast, setToast] = useState<GameState['toast']>(null);
 
   useEffect(() => {
-    saveGame(state);
-  }, [state]);
+    if (slot) saveToSlot(state, slot);
+  }, [state, slot]);
 
   // Keyed on the toast id: every reducer action clones state, so the object identity always changes.
   const toastId = state.toast?.id;
@@ -66,14 +72,24 @@ export default function App() {
     play('coin');
   }, [sim]);
 
+  const toTitle = () => {
+    setMenu(false);
+    setSlot(null);
+    dispatch({ type: 'TO_TITLE' });
+  };
+
   if (state.phase === 'title') {
     return (
       <TitleScreen
-        hasSave={!!saved}
-        onContinue={() => saved && dispatch({ type: 'LOAD', state: saved })}
-        onNew={(company) => {
-          clearSave();
-          setSaved(null);
+        onLoad={(s, loaded) => {
+          setSlot(s);
+          setTab('floor');
+          dispatch({ type: 'LOAD', state: loaded });
+          play('click');
+        }}
+        onNew={(s, company) => {
+          deleteSlot(s);
+          setSlot(s);
           setTab('floor');
           dispatch({ type: 'NEW_GAME', company });
           play('hire');
@@ -83,16 +99,7 @@ export default function App() {
   }
 
   if (state.phase === 'gameover') {
-    return (
-      <GameOver
-        state={state}
-        onNew={() => {
-          clearSave();
-          setSaved(null);
-          dispatch({ type: 'TO_TITLE' });
-        }}
-      />
-    );
+    return <GameOver state={state} onNew={toTitle} />;
   }
 
   const nav: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name']; count?: string }[] = [
@@ -106,11 +113,38 @@ export default function App() {
 
   return (
     <div className="app">
-      <TopBar state={state} onMenu={() => setMenu(true)} />
+      <TopBar state={state} onMenu={() => setMenu(true)} onHelp={() => setHelp(true)} />
 
-      {state.phase === 'invasion' && sim && <InvasionView state={state} sim={sim} onFinish={finish} />}
-      {state.phase === 'report' && <Report state={state} dispatch={dispatch} />}
-      {state.phase === 'hr' && <HrInbox state={state} dispatch={dispatch} />}
+      {state.phase === 'invasion' && sim && (
+        <>
+          <div className="tip-bar">
+            <Tip id="invasion" state={state} dispatch={dispatch}>
+              This is the live security feed. Visitors walk the route room by room and your staff fight automatically. Use <b>2×/4×</b> or <b>Skip</b> if you're busy.
+            </Tip>
+          </div>
+          <InvasionView state={state} sim={sim} onFinish={finish} />
+        </>
+      )}
+      {state.phase === 'report' && (
+        <>
+          <div className="tip-bar">
+            <Tip id="report" state={state} dispatch={dispatch}>
+              Your weekly report: money in and out, who performed, and incident reports for anyone hurt. Next comes the HR Inbox.
+            </Tip>
+          </div>
+          <Report state={state} dispatch={dispatch} />
+        </>
+      )}
+      {state.phase === 'hr' && (
+        <>
+          <div className="tip-bar">
+            <Tip id="hr" state={state} dispatch={dispatch}>
+              Every memo needs a decision before the next shift. Each option lists its consequences; greyed-out options need gold or a prerequisite.
+            </Tip>
+          </div>
+          <HrInbox state={state} dispatch={dispatch} />
+        </>
+      )}
 
       {state.phase === 'manage' && (
         <main className="main">
@@ -118,6 +152,7 @@ export default function App() {
             {nav.map((n) => (
               <button
                 key={n.id}
+                data-tour-target={`nav-${n.id}`}
                 className={`navbtn ${tab === n.id ? 'active' : ''}`}
                 onClick={() => {
                   setTab(n.id);
@@ -129,8 +164,13 @@ export default function App() {
                 {n.count && <span className="count">{n.count}</span>}
               </button>
             ))}
+            <button className="navbtn" onClick={() => setHelp(true)}>
+              <Icon name="book" size={17} />
+              Handbook
+            </button>
           </nav>
           <section className="content" key={tab}>
+            <Coach state={state} tab={tab} dispatch={dispatch} onTab={setTab} />
             {tab === 'floor' && <FloorPlan state={state} dispatch={dispatch} onOpenEmployee={setOpenEmp} />}
             {tab === 'staff' && <StaffDirectory state={state} onOpen={setOpenEmp} />}
             {tab === 'recruit' && <Recruitment state={state} dispatch={dispatch} />}
@@ -142,7 +182,8 @@ export default function App() {
         </main>
       )}
 
-      {openEmp && state.phase === 'manage' && <EmployeeModal id={openEmp} state={state} dispatch={dispatch} onClose={() => setOpenEmp(null)} />}
+      {openEmp && state.phase === 'manage' && <EmployeeModal id={openEmp} state={state} dispatch={dispatch} onClose={() => setOpenEmp(null)} onOpen={setOpenEmp} />}
+      {help && <Handbook onClose={() => setHelp(false)} />}
 
       {state.phase === 'manage' && state.week > 24 && !state.ipoShown && (
         <Modal title="Initial Public Offering!" onClose={() => dispatch({ type: 'ACK_IPO' })}>
@@ -161,31 +202,28 @@ export default function App() {
       {menu && (
         <Modal title="Main Menu" onClose={() => setMenu(false)}>
           <p className="muted" style={{ margin: 0 }}>
-            Your progress saves automatically after every action.
+            Saving automatically to slot {slot}. Export a save file to back it up or move it to another browser.
           </p>
           <div className="stack">
-            <button
-              className="btn"
-              onClick={() => {
-                setMenu(false);
-                setSaved(loadGame());
-                dispatch({ type: 'TO_TITLE' });
-              }}
-            >
+            <button className="btn" onClick={() => downloadText(saveFileName(state.company, state.week), exportSave(state))}>
+              <Icon name="download" size={16} /> Export save file
+            </button>
+            <button className="btn" onClick={() => setHelp(true)}>
+              <Icon name="book" size={16} /> Open the Handbook
+            </button>
+            <button className="btn" onClick={toTitle}>
               Save &amp; exit to title
             </button>
             <button
               className="btn btn-danger"
               onClick={() => {
-                if (confirm('Abandon this dungeon and start over? Your save will be erased.')) {
-                  setMenu(false);
-                  clearSave();
-                  setSaved(null);
-                  dispatch({ type: 'TO_TITLE' });
+                if (confirm(`Abandon this dungeon? Slot ${slot} will be erased.`)) {
+                  if (slot) deleteSlot(slot);
+                  toTitle();
                 }
               }}
             >
-              Abandon dungeon (new game)
+              Abandon dungeon (erase slot {slot})
             </button>
           </div>
         </Modal>

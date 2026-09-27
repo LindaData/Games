@@ -11,6 +11,7 @@ import {
   type Grade,
 } from './data';
 import { roomStaff, getRoom, roomLevelSum, hasRoom } from './dungeon';
+import { chemistry } from './relations';
 import { clamp, pick, randInt, vary, weightedPick, type Rng } from './rng';
 import type { Employee, GameState, Room, RoomTypeId, SpeciesId, Stats, TraitId } from './types';
 
@@ -136,6 +137,10 @@ export function combatProfile(e: Employee, state: GameState, room: Room | undefi
     if (hasTrait(e, 'loner')) eff *= roommates.length === 0 ? 1.3 : 0.85;
     if (roommates.some((o) => hasTrait(o, 'teamplayer')) || hasTrait(e, 'teamplayer')) atkMult *= 1.1;
     if (state.policies.includes('openplan') && roommates.length >= 2) atkMult *= 1.15;
+    const chem = chemistry(state, e, roommates);
+    eff *= chem.mult;
+    if (chem.friends) notes.push(`Working with ${chem.friends} friend${chem.friends > 1 ? 's' : ''}`);
+    if (chem.rivals) notes.push(`Stuck with ${chem.rivals} rival${chem.rivals > 1 ? 's' : ''}`);
     if (room.type === 'guardpost') defMult *= 1 + 0.1 + room.level * 0.1;
     if (room.type === 'lair') eff *= 1 + 0.15 + room.level * 0.15;
     if (room.type === 'vault') eff *= 1.2;
@@ -152,6 +157,10 @@ export function combatProfile(e: Employee, state: GameState, room: Room | undefi
   if (state.policies.includes('dresscode')) defMult *= 1.1;
   if (state.policies.includes('perfpay')) atkMult *= 1.1;
   if (state.policies.includes('hostile')) atkMult *= 1.2;
+  if (state.weeklyBuff) {
+    atkMult *= state.weeklyBuff.atk;
+    defMult *= state.weeklyBuff.def;
+  }
   if (state.policies.includes('fourday')) spdMult *= 0.9;
   return {
     maxHp: maxHp(e, state),

@@ -23,7 +23,7 @@ Other scripts:
 | `npm test` | Run the game-logic tests, including a headless auto-player balance check |
 | `npm run typecheck` | TypeScript only |
 
-No backend. Progress autosaves to `localStorage`.
+No backend. Progress autosaves to one of three save slots in `localStorage`. Saves can be exported to a `.json` file (title screen or in-game menu) and imported into any slot.
 
 ## How to play
 
@@ -40,7 +40,9 @@ The first four weeks are a probation period. After that, each treasury breach co
 
 - **Species (8):** Slime (Unpaid Intern), Goblin (Janitor), Skeleton (Security Guard), Orc (Heavy Security), Mimic (Asset Protection), Witch (R&D Researcher), Vampire (Night Shift Manager), Dragon (Chief Executive Wyrm). Each has a signature ability (taunt, reassembly, ambush, hex, lifesteal, fire breath…) and per-room job suitability grades from S to D.
 - **Traits (16):** Lazy, Bloodthirsty, Union Organizer, Coward, Overachiever, Night Owl, Master of Disguise, Team Player, Lone Wolf, Gold Digger, Thick-Skinned, Glass Cannon, Quick Learner, Office Gossip, Hypochondriac and Boss's Nephew. Most are trade-offs rather than flat bonuses.
-- **HR:** salary, morale (a combat multiplier), fatigue and burnout, XP and levels, promotions through five ranks, paid training, vacations, raises, termination, resignation letters, and walk-outs at zero morale.
+- **HR:** salary, morale (a combat multiplier), fatigue and burnout, XP and levels, promotions through five ranks, paid training, vacations, raises, termination, resignation letters, and walk-outs at zero morale. The inbox has 19 memo types, including feuds, poaching, birthdays, the suggestion box, retirement, a merger offer, and audit prep that grants a one-week buff.
+- **Relationships:** staff who share a room become friends (+8% each in the same room) or rivals (−8%, plus feud memos). Losing a friend hurts morale.
+- **Onboarding:** a step-by-step coach guides the first week, one-time tips explain each screen, and the in-game **Handbook** covers stats, job-fit grades, traits, relationships, monsters, adventurers and rooms.
 - **Rooms (14):** Hallway, Guard Post, Trap Corridor, Ambush Den, Executive Suite, Treasure Vault, Barracks, Break Room, Training Room, Medical Bay, Cafeteria, HR Office, Research Lab, Accounting. All rooms can be upgraded.
 - **Adventurers:** 8 classes (Fighter, Rogue, Wizard, Cleric, Paladin, Ranger, Barbarian, Bard) with real counters. Rogues disarm traps and spot mimics, wizards fireball whole rooms, paladins smite undead, rangers hunt beasts, clerics heal and bards buff. There are 8 party archetypes, night shifts every 3rd week, and a Quarterly Audit boss wave every 8th.
 - **Progression:** dungeon level → new species, rooms, slots and policies; weapon and armor tiers; 16 technologies; 12 HR policies.
@@ -55,6 +57,9 @@ src/game/        Pure, UI-free game model (unit-testable)
   sim.ts         Deterministic invasion simulation → replayable event log
   week.ts        End-of-week processing: payroll, morale, fatigue, XP, board
   hr.ts          HR inbox generation, options and consequences
+  stories.ts     Extra memo types and one-off story events
+  relations.ts   Friendships, rivalries and their effects
+  save.ts        Save slots, v1→v2 migration, export/import
   state.ts       Reducer (all player actions), new game, save/load
   autoplay.ts    Headless auto-player used for balance testing
 src/components/  React screens (floor plan, staff, invasion playback, report, HR inbox…)

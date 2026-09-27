@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { SPECIES } from '../game/data';
 import { empById, hrOptions } from '../game/hr';
 import { title } from '../game/employees';
@@ -326,71 +325,6 @@ function Memo({ ev, state, dispatch, e, e2 }: { ev: HrEvent; state: GameState; d
             <span>{o.desc}</span>
           </button>
         ))}
-      </div>
-    </div>
-  );
-}
-
-const LINEUP = ['slime', 'goblin', 'skeleton', 'orc', 'mimic', 'witch', 'vampire', 'dragon'] as const;
-
-export function TitleScreen({ hasSave, onContinue, onNew }: { hasSave: boolean; onContinue: () => void; onNew: (company: string) => void }) {
-  const [name, setName] = useState('');
-  const [confirmNew, setConfirmNew] = useState(false);
-  return (
-    <div className="title-screen">
-      <div className="title-card">
-        <div className="title-lineup">
-          {LINEUP.map((k, i) => (
-            <div key={k} className="portrait" style={{ width: 58, height: 58, animationDelay: `${-i * 0.4}s` }}>
-              <Avatar kind={k} size={54} hue={0} />
-            </div>
-          ))}
-        </div>
-        <div className="logo">
-          DUNGEON
-          <br />
-          HR
-        </div>
-        <div className="tagline">
-          Human <i>(and Inhuman)</i> Resources. Hire monsters, manage morale, survive the quarterly invasion. The adventurers are coming. So is the union.
-        </div>
-        <div className="title-actions">
-          {hasSave && !confirmNew && (
-            <button className="btn btn-primary btn-lg" onClick={onContinue}>
-              Continue
-            </button>
-          )}
-          {(!hasSave || confirmNew) && (
-            <>
-              <input className="title-input" placeholder="Company name (e.g. Doom & Associates)" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} />
-              <button className="btn btn-primary btn-lg" onClick={() => onNew(name.trim() || 'Doom & Associates')}>
-                {hasSave ? 'Start over (erases save)' : 'Start your first week'}
-              </button>
-            </>
-          )}
-          {hasSave && !confirmNew && (
-            <button className="btn" onClick={() => setConfirmNew(true)}>
-              New game
-            </button>
-          )}
-        </div>
-        <div className="panel panel-pad howto">
-          <div>
-            <b>1. Hire</b> monsters from the applicant pool. Each has stats, a salary, and personality traits.
-          </div>
-          <div>
-            <b>2. Assign</b> them to rooms along the invasion route. Species suit some jobs better (S → D).
-          </div>
-          <div>
-            <b>3. Open for business.</b> Adventurers walk the route; your staff fight automatically.
-          </div>
-          <div>
-            <b>4. Handle HR.</b> Raises, unions, vacations, feuds, resignations. Morale drives performance.
-          </div>
-          <div>
-            <b>5. Grow.</b> Earn gold, level the dungeon, unlock rooms, monsters, tech, and questionable policies.
-          </div>
-        </div>
       </div>
     </div>
   );

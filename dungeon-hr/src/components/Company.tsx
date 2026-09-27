@@ -202,7 +202,7 @@ export function Memorial({ state }: { state: GameState }) {
         <div className="tombs">
           {state.memorial.map((m, i) => (
             <div key={i} className="tomb">
-              <div className="rip">{m.kind === 'fatality' ? 'R.I.P.' : m.kind === 'resigned' ? 'RESIGNED' : 'TERMINATED'}</div>
+              <div className="rip">{m.kind === 'fatality' ? 'R.I.P.' : m.kind === 'resigned' ? 'RESIGNED' : m.kind === 'retired' ? 'RETIRED' : 'TERMINATED'}</div>
               <Avatar kind={m.species} size={48} dead={m.kind === 'fatality'} />
               <div className="nm">{m.name}</div>
               <div className="cause">{m.cause}</div>

@@ -152,7 +152,14 @@ export type HrKind =
   | 'sick'
   | 'burnout'
   | 'promotion'
-  | 'news';
+  | 'news'
+  | 'feud'
+  | 'poach'
+  | 'birthday'
+  | 'suggestion'
+  | 'merger'
+  | 'auditprep'
+  | 'retirement';
 
 export interface HrEvent {
   id: string;
@@ -180,7 +187,7 @@ export interface MemorialEntry {
   species: SpeciesId;
   week: number;
   cause: string;
-  kind: 'fatality' | 'resigned' | 'terminated';
+  kind: 'fatality' | 'resigned' | 'terminated' | 'retired';
 }
 
 export interface WeekSummary {
@@ -251,6 +258,26 @@ export interface GameState {
   gameOverReason: string | null;
   ipoShown: boolean;
   toast: Toast | null;
+  /** Pairwise relationship scores between employees, −100 (rivals) to 100 (friends). */
+  relations: Relation[];
+  /** One-time story events that have already fired. */
+  flags: string[];
+  /** Temporary modifier for the next invasion only (from HR decisions). */
+  weeklyBuff: WeeklyBuff | null;
+  /** One-time tutorial tips the player has dismissed. */
+  tipsSeen: string[];
+}
+
+export interface Relation {
+  a: string;
+  b: string;
+  score: number;
+}
+
+export interface WeeklyBuff {
+  label: string;
+  atk: number;
+  def: number;
 }
 
 export interface Toast {
