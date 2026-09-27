@@ -4,6 +4,16 @@
 
 A roguelike survival game played on a real chessboard. You control **one** piece. A full chess army, played by an AI, hunts you. Survive the battle's objective, pick upgrades, travel a branching map and beat three bosses. A run takes about 15–30 minutes.
 
+## Documentation
+
+| Guide | For | Covers |
+| --- | --- | --- |
+| [Player Guide](docs/PLAYER_GUIDE.md) | Players | Pieces, reading the board, objectives, upgrades, map, bosses, unlocks, tips |
+| [Game Design Reference](docs/GAME_DESIGN.md) | Designers and balancing | Every rule, formula and tuning value, with the file it lives in |
+| [Developer Guide](docs/DEVELOPER_GUIDE.md) | Programmers | Architecture, turn flow, chess.js integration, the AI, adding content, tests, deployment |
+
+This README is the short overview.
+
 ## Run it
 
 ```bash
