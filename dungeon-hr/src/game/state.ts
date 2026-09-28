@@ -1,5 +1,7 @@
 import { generateParty } from './adventurers';
-import { ARMOR_TIERS, POLICIES, ROOMS, TECHS, WEAPON_TIERS, officeSlotsFor, routeSlotsFor } from './data';
+import { ARMOR_TIERS, MAX_BOARD, POLICIES, ROOMS, TECHS, WEAPON_TIERS, officeSlotsFor, routeSlotsFor } from './data';
+import { autoAssign, placeNewHire } from './staffing';
+import { recommendedOption } from './advice';
 import { buildCost, getRoom, headcountLimit, policySlots, roomAt, roomCapacity, roomStaff, upgradeCost } from './dungeon';
 import { canPromote, generateApplicants, generateEmployee, hireCost, maxHp, nextId, trainingCost, gainXp } from './employees';
 import { promote, resolveHr, terminate } from './hr';
@@ -16,11 +18,11 @@ export function newGame(company = 'Dungeon Corp.', rng: Rng = defaultRng): GameS
     phase: 'manage',
     company,
     week: 1,
-    gold: 260,
+    gold: 400,
     research: 0,
     dungeonLevel: 1,
     dungeonXp: 0,
-    board: 3,
+    board: MAX_BOARD,
     defenseStreak: 0,
     employees: [],
     applicants: [],
@@ -88,7 +90,9 @@ export type Action =
   | { type: 'HR_NEXT' }
   | { type: 'DISMISS_TUTORIAL' }
   | { type: 'ACK_IPO' }
-  | { type: 'DISMISS_TIP'; id: string };
+  | { type: 'DISMISS_TIP'; id: string }
+  | { type: 'AUTO_ASSIGN' }
+  | { type: 'HR_AUTO' };
 
 function toast(state: GameState, text: string, tone: 'good' | 'bad') {
   state.toast = { id: (state.toast?.id ?? 0) + 1, text, tone };
@@ -126,7 +130,8 @@ export function reducer(prev: GameState, action: Action): GameState {
       s.applicants = s.applicants.filter((x) => x.id !== a.id);
       s.employees.push(a);
       s.stats.hired += 1;
-      toast(s, `${a.name} has signed the contract (in blood, as is customary).`, 'good');
+      const placed = placeNewHire(s, a);
+      toast(s, placed ? `${a.name} hired and assigned to the ${placed}.` : `${a.name} hired. No free positions, so they're on the bench.`, 'good');
       return s;
     }
     case 'REFRESH_APPLICANTS': {
@@ -289,6 +294,23 @@ export function reducer(prev: GameState, action: Action): GameState {
     case 'DISMISS_TUTORIAL':
       s.tutorialDone = true;
       return s;
+    case 'AUTO_ASSIGN': {
+      const moved = autoAssign(s);
+      toast(s, moved ? `Staff reassigned: ${moved} move${moved === 1 ? '' : 's'}.` : 'Everyone is already in the best spot.', 'good');
+      return s;
+    }
+    case 'HR_AUTO': {
+      const lines: string[] = [];
+      let guard = 0;
+      while (s.hrInbox.length && guard++ < 20) {
+        const ev = s.hrInbox[0];
+        const opt = recommendedOption(s, ev);
+        lines.push(`${ev.title}: ${resolveHr(s, ev, opt, rng)}`);
+        s.hrInbox = s.hrInbox.slice(1);
+      }
+      s.hrOutcome = { title: 'Handled by HR', text: lines.join('\n\n') };
+      return s;
+    }
     case 'DISMISS_TIP':
       if (!s.tipsSeen.includes(action.id)) s.tipsSeen.push(action.id);
       if (action.id === 'coach') s.tutorialDone = true;

@@ -1,6 +1,6 @@
 import type { GameState } from './types';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const SLOTS = [1, 2, 3] as const;
 export type Slot = (typeof SLOTS)[number];
 
@@ -43,6 +43,11 @@ export function migrate(raw: unknown): GameState | null {
     s.weeklyBuff = null;
     s.tipsSeen = s.tutorialDone ? ['invasion', 'report', 'hr', 'coach'] : [];
     s.version = 2;
+  }
+  if (s.version < 3) {
+    // v3 raised Board confidence from 3 to 5 hearts; existing runs get the extra two.
+    s.board = Math.min(5, (s.board ?? 3) + 2);
+    s.version = 3;
   }
   const state = s as GameState;
   if (state.phase === 'invasion' || state.phase === 'title') state.phase = 'manage';

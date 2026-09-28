@@ -373,6 +373,9 @@ export const POLICIES: PolicyDef[] = [
 
 export const RANKS = ['Junior ', '', 'Senior ', 'Principal ', 'Chief '];
 
+/** Board confidence hearts. Each breach costs one; zero means game over. */
+export const MAX_BOARD = 5;
+
 /** Dungeon-level unlocks for display. */
 export const LEVEL_UNLOCKS: Record<number, string[]> = {
   2: ['Orc (Heavy Security)', 'Cafeteria', 'Office slot', 'Unlimited PTO', 'Open-Plan Dungeon'],

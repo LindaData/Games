@@ -65,7 +65,7 @@ export function generateHrEvents(state: GameState, rng: Rng, ctx: { mvpId?: stri
 
   // Resignation letters come first: they're urgent.
   for (const e of emps) {
-    if (e.morale < 20 && chance(rng, 0.65)) {
+    if (e.morale < 20 && chance(rng, 0.5)) {
       push({ kind: 'resignation', empId: e.id, from: e.name, title: `Resignation letter: ${e.name}`, body: `"Dear Management, after ${Math.max(1, state.week - e.hiredWeek)} weeks of service I have decided to pursue opportunities in a dungeon that values me. Please forward my final paycheck to my cave." — ${e.name}, ${title(e)} (morale ${Math.round(e.morale)})` });
     }
   }
@@ -128,7 +128,8 @@ export function generateHrEvents(state: GameState, rng: Rng, ctx: { mvpId?: stri
     const fine = 30 + state.week * 5;
     candidates.push(() => push({ kind: 'inspection', amount: fine, from: 'Dept. of Dungeon Health & Safety', title: 'Health & Safety inspection', body: `An inspector has cited us for ${v}. The fine is ${fine} gold.` }));
   }
-  if (chance(rng, 0.25)) {
+  // Flavor news is rare: the inbox should hold decisions, not reading.
+  if (chance(rng, 0.06)) {
     const n = pick(rng, NEWS);
     candidates.push(() => push({ kind: 'news', from: 'Corporate Communications', title: n.title, body: n.body }));
   }
@@ -137,8 +138,8 @@ export function generateHrEvents(state: GameState, rng: Rng, ctx: { mvpId?: stri
   candidates.push(...story.optional.map((ev) => () => push(ev)));
   for (const ev of story.forced) push(ev);
 
-  // Keep the inbox manageable: urgent memos plus up to three others.
-  for (const c of shuffle(rng, candidates).slice(0, Math.max(1, 3 - out.length))) c();
+  // Keep the inbox short: urgent memos plus at most two others.
+  for (const c of shuffle(rng, candidates).slice(0, Math.max(0, 2 - out.length))) c();
   return out;
 }
 
