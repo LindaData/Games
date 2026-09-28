@@ -27,14 +27,14 @@ No backend. Progress autosaves to one of three save slots in `localStorage`. Sav
 
 ## How to play
 
-1. **Hire** monsters in *Recruitment*. Each applicant has stats (HP, ATK, DEF, SPD, INT), a salary, a one-time recruiting fee, traits and a cover letter.
-2. **Assign** staff on the *Floor Plan*: drag them onto rooms, or click a staff member and then a room. The **Invasion Route** is walked left to right and ends at the **Treasure Vault**. The **Back Office** holds support facilities.
-3. Read the **Incoming Visitors** briefing, then **Open for Business**. The fight plays out automatically on the security camera feed (pause, 1×/2×/4×, or skip).
-4. Read the **Weekly Operations Report**: finances, performance, level-ups and *Employee Incident Reports*.
-5. Clear the **HR Inbox**: raises, union demands, vacations, sick leave, feuds, resignations, performance reviews and inspections. Every decision changes morale, money or who shows up next week.
-6. Spend gold and R&D points: build and upgrade rooms, buy equipment tiers, research technologies, enact (questionable) HR policies.
+1. **Hire** monsters on the *Hire* page. Bigger power numbers fight better. New hires go straight to the best open position.
+2. Check the **Next invasion** card. It shows who's coming, your **win chance** (the fight simulated 40 times), and **Next steps** with one-tap fixes like *Auto-assign staff*, *Build a Medical Bay* or *Hire*.
+3. **Open for Business.** Your staff fight room by room on their own; tap *Skip* to jump to the result.
+4. Read the **weekly report**: gold, visitors stopped, staff hurt and Board mood, with a full breakdown on request.
+5. Clear the **HR inbox**, either one memo at a time or with **Handle all**, which applies the ★ recommended choices.
+6. Spend gold on **Upgrades**: equipment, research and HR policies.
 
-The first four weeks are a probation period. After that, each treasury breach costs one of three Board confidence hearts; two clean weeks in a row restore one. Lose all three and the Board stages a hostile takeover. Survive 24 weeks for the IPO, then keep going for as long as you can.
+The first 6 weeks are forgiving. After that, each treasury breach costs one of five Board hearts; two clean weeks in a row restore one. Lose them all and the Board takes over. Survive 24 weeks for the IPO, then keep going as long as you can.
 
 ## Systems
 

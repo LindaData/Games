@@ -51,7 +51,7 @@ export function StaffDirectory({ state, onOpen }: { state: GameState; onOpen: (i
     <>
       <div className="page-head">
         <div>
-          <h2>Staff Directory</h2>
+          <h2>Your Team</h2>
           <p>
             {state.employees.length}/{headcountLimit(state)} headcount · Weekly payroll <Gold v={payroll(state)} />
           </p>
@@ -238,9 +238,9 @@ export function Recruitment({ state, dispatch }: { state: GameState; dispatch: (
     <>
       <div className="page-head">
         <div>
-          <h2>Recruitment</h2>
+          <h2>Hire Monsters</h2>
           <p>
-            Applicant pool for week {state.week}. Headcount {state.employees.length}/{headcountLimit(state)}. New applicants arrive every week.
+            {state.employees.length}/{headcountLimit(state)} staff. New hires go straight to the best open position. Fresh applicants every week.
           </p>
         </div>
         <div className="actions">

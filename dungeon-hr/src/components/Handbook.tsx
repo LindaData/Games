@@ -62,8 +62,8 @@ function Basics() {
       </ol>
       <h4>Winning and losing</h4>
       <p>
-        The Board has three hearts of confidence. After a 4-week probation, every breach costs one; two clean weeks in a row restore one. Lose all three and you're out. Survive 24
-        weeks and the company IPOs (you can keep playing).
+        The Board has five hearts of confidence. After a 6-week grace period, every breach costs one; two clean weeks in a row restore one. Lose them all and you're out. Survive 24
+        weeks and the company IPOs (you can keep playing). The win-chance meter tells you how likely you are to stop next week's visitors.
       </p>
       <h4>Money</h4>
       <p>Salaries are paid every week whether you win or lose. Unpaid staff lose a lot of morale and may walk out. Keep a buffer.</p>

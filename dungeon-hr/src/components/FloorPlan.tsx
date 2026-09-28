@@ -170,10 +170,23 @@ export function FloorPlan({ state, dispatch, onOpenEmployee }: Props) {
     <>
       <div className="page-head">
         <div>
-          <h2>Floor Plan</h2>
-          <p>Tap a staff member, then tap a room to assign them. Tap a room to manage it. On a computer you can also drag.</p>
+          <h2>Your Dungeon</h2>
+          <p>Adventurers enter on the left and fight each room in order. The Treasure Vault is their final stop.</p>
+        </div>
+        <div className="actions">
+          <button className="btn btn-primary" data-tour-target="auto-assign" onClick={() => dispatch({ type: 'AUTO_ASSIGN' })}>
+            <Icon name="users" size={16} /> Auto-assign staff
+          </button>
         </div>
       </div>
+      {bench.length > 0 && !selectedEmp && (
+        <div className="alert">
+          <Icon name="users" />
+          <span className="grow">
+            {bench.length} on the bench. Tap <b>Auto-assign staff</b>, or tap a person below and then a room.
+          </span>
+        </div>
+      )}
 
       {selectedEmp && (
         <div className="alert info">
@@ -189,7 +202,7 @@ export function FloorPlan({ state, dispatch, onOpenEmployee }: Props) {
 
       <div className="panel panel-pad">
         <div className="section-title">
-          <Icon name="sword" /> Invasion Route <span className="sub">Visitors walk left to right. Every room they clear brings them closer to the gold.</span>
+          <Icon name="sword" /> Invasion route <span className="sub">Fighting rooms, in order</span>
         </div>
         <div className="route">
           <div className="entrance">
@@ -217,7 +230,7 @@ export function FloorPlan({ state, dispatch, onOpenEmployee }: Props) {
 
       <div className="panel panel-pad">
         <div className="section-title">
-          <Icon name="book" /> Back Office <span className="sub">Support facilities. Staff assigned here work jobs instead of fighting.</span>
+          <Icon name="book" /> Back office <span className="sub">Support rooms. Staff here don't fight.</span>
         </div>
         <div className="office-grid">
           {officeSlots.map((slot) => {
@@ -229,7 +242,7 @@ export function FloorPlan({ state, dispatch, onOpenEmployee }: Props) {
 
       <div className="panel panel-pad">
         <div className="section-title">
-          <Icon name="users" /> The Bench <span className="sub">Unassigned staff recover fatigue but earn nothing and slowly lose morale. Drop staff here to unassign.</span>
+          <Icon name="users" /> Bench <span className="sub">Unassigned staff don't fight</span>
         </div>
         <div className={`bench ${dragOver === 'bench' ? 'drop-ok' : ''}`} data-tour-target="bench" {...dropProps(null, 'bench')}>
           {bench.length === 0 && <span className="dim small" style={{ alignSelf: 'center' }}>Everyone has a job. Very efficient. Slightly dystopian.</span>}

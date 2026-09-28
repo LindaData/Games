@@ -118,7 +118,7 @@ export function TitleScreen({ onLoad, onNew }: { onLoad: (slot: Slot, state: Gam
                 <div className="slot-meta">
                   Week {info.week} · Dungeon Lv {info.level} · {Math.round(info.gold)}g · {info.staff} staff ·{' '}
                   <span className="hearts" style={{ display: 'inline-flex' }}>
-                    {[0, 1, 2].map((i) => (
+                    {Array.from({ length: 5 }, (_, i) => i).map((i) => (
                       <Icon key={i} name="heart" size={12} className={i < info.board ? 'on' : 'off'} />
                     ))}
                   </span>

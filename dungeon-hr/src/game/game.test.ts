@@ -8,6 +8,7 @@ import { adjustRel, bond, chemistry, relationsOf, weeklyRelations } from './rela
 import { exportSave, importSave, migrate } from './save';
 import { combatProfile } from './employees';
 import { getRoom } from './dungeon';
+import { forecast } from './forecast';
 
 describe('invasion simulation', () => {
   it('always terminates with an outcome and consistent events', () => {
@@ -143,7 +144,8 @@ describe('saves', () => {
     delete s.tipsSeen;
     s.version = 1;
     const m = migrate(s)!;
-    expect(m.version).toBe(2);
+    expect(m.version).toBe(3);
+    expect(m.board).toBe(5);
     expect(m.relations).toEqual([]);
     expect(m.flags).toEqual([]);
   });
@@ -151,5 +153,52 @@ describe('saves', () => {
   it('rejects files that are not saves', () => {
     expect(() => importSave('{"hello": 1}')).toThrow();
     expect(() => importSave('not json')).toThrow();
+  });
+});
+
+describe('simplified flow', () => {
+  it('auto-assign guards the vault and empties the bench when there is room', () => {
+    let s = newGame('T', mulberry32(4));
+    for (const e of s.employees) e.roomId = null;
+    s = reducer(s, { type: 'AUTO_ASSIGN' });
+    const vault = s.rooms.find((r) => r.type === 'vault')!;
+    expect(s.employees.some((e) => e.roomId === vault.id)).toBe(true);
+    expect(s.employees.filter((e) => !e.roomId).length).toBe(0);
+  });
+
+  it('new hires are placed automatically when a position is free', () => {
+    let s = newGame('T', mulberry32(6));
+    s = reducer(s, { type: 'BUILD', zone: 'route', slot: 1, roomType: 'guardpost' });
+    const hireId = s.applicants[0].id;
+    s = reducer(s, { type: 'HIRE', id: hireId });
+    expect(s.employees.find((e) => e.id === hireId)!.roomId).not.toBeNull();
+  });
+
+  it('Handle all resolves every memo', () => {
+    let s = newGame('T', mulberry32(8));
+    s = {
+      ...s,
+      phase: 'hr',
+      hrInbox: [
+        { id: 'a', kind: 'raise', title: 'Raise', body: '', empId: s.employees[0].id, amount: 10, from: 'x' },
+        { id: 'b', kind: 'vacation', title: 'Vacation', body: '', empId: s.employees[1].id, from: 'x' },
+        { id: 'c', kind: 'auditprep', title: 'Audit', body: '', from: 'x' },
+      ],
+    };
+    s = reducer(s, { type: 'HR_AUTO' });
+    expect(s.hrInbox.length).toBe(0);
+    expect(s.hrOutcome?.text.length).toBeGreaterThan(0);
+    s = reducer(s, { type: 'HR_NEXT' });
+    expect(s.phase).toBe('manage');
+  });
+
+  it('forecast returns a probability and staffing the vault improves it', () => {
+    const s = newGame('T', mulberry32(10));
+    const staffed = forecast(s).winChance;
+    const empty = structuredClone(s);
+    for (const e of empty.employees) e.roomId = null;
+    expect(staffed).toBeGreaterThanOrEqual(0);
+    expect(staffed).toBeLessThanOrEqual(1);
+    expect(forecast(empty).winChance).toBeLessThanOrEqual(staffed);
   });
 });

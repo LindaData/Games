@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useReducer, useState } from 'react';
-import { Intel, TopBar } from './components/Chrome';
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { Readiness } from './components/Readiness';
+import { forecast, type Forecast } from './game/forecast';
+import { TopBar } from './components/Chrome';
 import { Coach, Tip, type CoachTab } from './components/Coach';
 import { Memorial, Policies, Research } from './components/Company';
 import { FloorPlan } from './components/FloorPlan';
@@ -37,6 +39,9 @@ export default function App() {
   const [more, setMore] = useState(false);
   const [muted, setMutedState] = useState(isMuted());
   const [toast, setToast] = useState<GameState['toast']>(null);
+  const isMobile = useIsMobile();
+  // Win-chance forecast for the next invasion, shown in the Readiness card and the phone dock.
+  const fc = useMemo(() => (state.phase === 'manage' ? forecast(state) : null), [state]);
 
   useEffect(() => {
     if (slot) saveToSlot(state, slot);
@@ -107,13 +112,12 @@ export default function App() {
   }
 
   const nav: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name']; count?: string }[] = [
-    { id: 'floor', label: 'Floor Plan', icon: 'vault' },
-    { id: 'staff', label: 'Staff Directory', icon: 'users', count: `${state.employees.length}/${headcountLimit(state)}` },
-    { id: 'recruit', label: 'Recruitment', icon: 'mail', count: String(state.applicants.length) },
-    { id: 'rnd', label: 'R&D / Procurement', icon: 'flask', count: String(state.research) },
-    { id: 'policies', label: 'HR Policies', icon: 'book', count: `${state.policies.length}` },
-    { id: 'memorial', label: 'Memorial Wall', icon: 'skull', count: state.memorial.length ? String(state.memorial.length) : undefined },
+    { id: 'floor', label: 'Dungeon', icon: 'vault' },
+    { id: 'staff', label: 'Team', icon: 'users', count: `${state.employees.length}/${headcountLimit(state)}` },
+    { id: 'recruit', label: 'Hire', icon: 'mail', count: String(state.applicants.length) },
+    { id: 'rnd', label: 'Upgrades', icon: 'up' },
   ];
+  const navTab: Tab = tab === 'policies' ? 'rnd' : tab === 'memorial' ? 'staff' : tab;
 
   return (
     <div className="app">
@@ -123,7 +127,7 @@ export default function App() {
         <>
           <div className="tip-bar">
             <Tip id="invasion" state={state} dispatch={dispatch}>
-              This is the live security feed. Visitors walk the route room by room and your staff fight automatically. Use <b>2×/4×</b> or <b>Skip</b> if you're busy.
+              Your staff fight on their own, room by room. Tap <b>Skip</b> to jump to the result.
             </Tip>
           </div>
           <InvasionView state={state} sim={sim} onFinish={finish} />
@@ -133,7 +137,7 @@ export default function App() {
         <>
           <div className="tip-bar">
             <Tip id="report" state={state} dispatch={dispatch}>
-              Your weekly report: money in and out, who performed, and incident reports for anyone hurt. Next comes the HR Inbox.
+              How the week went. Tap <b>Full breakdown</b> for details, then continue.
             </Tip>
           </div>
           <Report state={state} dispatch={dispatch} />
@@ -143,7 +147,7 @@ export default function App() {
         <>
           <div className="tip-bar">
             <Tip id="hr" state={state} dispatch={dispatch}>
-              Every memo needs a decision before the next shift. Each option lists its consequences; greyed-out options need gold or a prerequisite.
+              Decide each memo before the next shift, or tap <b>Handle all</b> to accept the ★ recommended choices. Greyed-out options need more gold.
             </Tip>
           </div>
           <HrInbox state={state} dispatch={dispatch} />
@@ -157,7 +161,7 @@ export default function App() {
               <button
                 key={n.id}
                 data-tour-target={`nav-${n.id}`}
-                className={`navbtn ${tab === n.id ? 'active' : ''}`}
+                className={`navbtn ${navTab === n.id ? 'active' : ''}`}
                 onClick={() => {
                   setTab(n.id);
                   play('click');
@@ -175,22 +179,31 @@ export default function App() {
           </nav>
           <section className="content" key={tab}>
             <Coach state={state} tab={tab} dispatch={dispatch} onTab={setTab} />
+            {tab === 'floor' && isMobile && fc && <Readiness state={state} fc={fc} dispatch={dispatch} onStart={start} onNav={setTab} inline />}
             {tab === 'floor' && <FloorPlan state={state} dispatch={dispatch} onOpenEmployee={setOpenEmp} />}
-            {tab === 'staff' && <StaffDirectory state={state} onOpen={setOpenEmp} />}
+            {(tab === 'staff' || tab === 'memorial') && (
+              <>
+                <SubTabs value={tab} onChange={setTab} options={[['staff', 'Current team'], ['memorial', `Former staff (${state.memorial.length})`]]} />
+                {tab === 'staff' ? <StaffDirectory state={state} onOpen={setOpenEmp} /> : <Memorial state={state} />}
+              </>
+            )}
             {tab === 'recruit' && <Recruitment state={state} dispatch={dispatch} />}
-            {tab === 'rnd' && <Research state={state} dispatch={dispatch} />}
-            {tab === 'policies' && <Policies state={state} dispatch={dispatch} />}
-            {tab === 'memorial' && <Memorial state={state} />}
-            {tab === 'intel' && <Intel state={state} onStart={start} onNav={(t) => setTab(t as Tab)} inline />}
+            {(tab === 'rnd' || tab === 'policies') && (
+              <>
+                <SubTabs value={tab} onChange={setTab} options={[['rnd', 'Equipment & research'], ['policies', `Policies (${state.policies.length})`]]} />
+                {tab === 'rnd' ? <Research state={state} dispatch={dispatch} /> : <Policies state={state} dispatch={dispatch} />}
+              </>
+            )}
           </section>
-          <Intel state={state} onStart={start} onNav={(t) => setTab(t as Tab)} />
+          {!isMobile && fc && <Readiness state={state} fc={fc} dispatch={dispatch} onStart={start} onNav={setTab} />}
         </main>
       )}
 
       {state.phase === 'manage' && (
         <MobileDock
           state={state}
-          tab={tab}
+          tab={navTab}
+          fc={fc}
           onTab={(t) => {
             setTab(t);
             window.scrollTo({ top: 0 });
@@ -204,29 +217,6 @@ export default function App() {
       {more && (
         <Modal title="More" onClose={() => setMore(false)}>
           <div className="stack">
-            {(
-              [
-                ['rnd', 'R&D / Procurement', 'flask', `${state.research} R&D points`],
-                ['policies', 'HR Policies', 'book', `${state.policies.length} active`],
-                ['memorial', 'Memorial Wall', 'skull', `${state.memorial.length} former staff`],
-              ] as const
-            ).map(([id, label, icon, sub]) => (
-              <button
-                key={id}
-                className="btn more-item"
-                onClick={() => {
-                  setTab(id);
-                  setMore(false);
-                  window.scrollTo({ top: 0 });
-                }}
-              >
-                <Icon name={icon} size={18} />
-                <span className="grow" style={{ textAlign: 'left' }}>
-                  {label}
-                </span>
-                <span className="xs muted">{sub}</span>
-              </button>
-            ))}
             <button
               className="btn more-item"
               onClick={() => {
@@ -352,35 +342,36 @@ function CopySaveButton({ state }: { state: GameState }) {
 function MobileDock({
   state,
   tab,
+  fc,
   onTab,
   onMore,
   onStart,
 }: {
   state: GameState;
   tab: Tab;
+  fc: Forecast | null;
   onTab: (t: Tab) => void;
   onMore: () => void;
   onStart: () => void;
 }) {
-  const p = state.nextParty;
   const vaultEmpty = roomStaff(state, vaultRoom(state).id).filter((e) => e.status === 'active').length === 0;
   const bench = state.employees.filter((e) => !e.roomId && e.status === 'active').length;
-  const warn = vaultEmpty ? 'Vault is unstaffed!' : bench ? `${bench} on the bench` : null;
+  const warn = vaultEmpty ? 'Vault is unguarded!' : bench ? `${bench} on the bench` : null;
+  const pct = fc ? Math.round(fc.winChance * 100) : 0;
   const tabs: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name']; badge?: string }[] = [
-    { id: 'floor', label: 'Floor', icon: 'vault' },
-    { id: 'staff', label: 'Staff', icon: 'users' },
+    { id: 'floor', label: 'Dungeon', icon: 'vault', badge: warn ? '!' : undefined },
+    { id: 'staff', label: 'Team', icon: 'users' },
     { id: 'recruit', label: 'Hire', icon: 'mail', badge: state.applicants.length ? String(state.applicants.length) : undefined },
-    { id: 'intel', label: 'Visitors', icon: 'sword', badge: warn ? '!' : undefined },
+    { id: 'rnd', label: 'Upgrades', icon: 'up' },
   ];
-  const moreActive = tab === 'rnd' || tab === 'policies' || tab === 'memorial';
   return (
     <div className="dock mobile-only">
       <div className="dock-cta">
-        <button className="dock-info" onClick={() => onTab('intel')}>
-          <b>
-            Week {state.week} · {p.members.length} visitors{p.boss ? ' · BOSS' : ''}
+        <button className="dock-info" onClick={() => onTab('floor')}>
+          <b className={fc ? fc.tone : ''}>
+            {pct}% win chance{state.nextParty.boss ? ' · BOSS' : ''}
           </b>
-          <span className={warn ? 'bad' : 'muted'}>{warn ?? `${p.name} · bounty ${p.bounty}g`}</span>
+          <span className={warn ? 'bad' : 'muted'}>{warn ?? `Week ${state.week} · ${state.nextParty.members.length} visitors`}</span>
         </button>
         <button className="btn btn-primary" data-tour-target="go" onClick={onStart}>
           Open for Business
@@ -396,7 +387,7 @@ function MobileDock({
             {t.label}
           </button>
         ))}
-        <button className={moreActive ? 'on' : ''} onClick={onMore}>
+        <button onClick={onMore}>
           <span className="tab-icon">
             <Icon name="menu" size={20} />
           </span>
@@ -405,4 +396,39 @@ function MobileDock({
       </nav>
     </div>
   );
+}
+
+function SubTabs<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: [T, string][] }) {
+  return (
+    <div className="seg subtabs" role="tablist">
+      {options.map(([id, label]) => (
+        <button key={id} role="tab" aria-selected={value === id} className={value === id ? 'on' : ''} onClick={() => onChange(id)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function useIsMobile(): boolean {
+  const query = '(max-width: 760px)';
+  const [mobile, setMobile] = useState(() => {
+    try {
+      return window.matchMedia(query).matches;
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    let mq: MediaQueryList;
+    try {
+      mq = window.matchMedia(query);
+    } catch {
+      return;
+    }
+    const on = () => setMobile(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return mobile;
 }

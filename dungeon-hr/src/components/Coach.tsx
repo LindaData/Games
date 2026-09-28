@@ -19,28 +19,21 @@ function currentStep(state: GameState, tab: CoachTab): Step | null {
   const bench = state.employees.filter((e) => !e.roomId && e.status === 'active').length;
   if (state.stats.hired === 0) {
     return tab === 'recruit'
-      ? { id: 'hire', title: 'Hire your first monster', text: 'Each applicant shows stats, traits, salary and a one-time fee. Pick someone affordable and press Hire.', target: 'hire-btn' }
-      : { id: 'hire', title: 'Welcome, HR Manager', text: 'Adventurers arrive every week. You have three staff and a small budget. First, hire some help.', target: 'nav-recruit', tab: 'recruit' };
+      ? { id: 'hire', title: 'Hire your first monster', text: 'Bigger power numbers fight better. Pick someone you can afford and tap Hire. New hires go straight to work.', target: 'hire-btn' }
+      : { id: 'hire', title: 'Welcome, HR Manager', text: 'Adventurers attack every week, and your monsters stop them. First, hire some help.', target: 'nav-recruit', tab: 'recruit' };
+  }
+  if (!state.rooms.some((r) => r.type === 'medical')) {
+    if (tab !== 'floor') return { id: 'build', title: 'Build a Medical Bay', text: 'Head back to your dungeon.', target: 'nav-floor', tab: 'floor' };
+    return { id: 'build', title: 'Build a Medical Bay', text: 'Tap an empty Back office slot and pick Medical Bay. It keeps injured staff working and saves lives.', target: 'empty-slot' };
   }
   if (!vaultStaffed || bench > 0) {
-    if (tab !== 'floor') return { id: 'assign', title: 'Put your staff to work', text: 'New hires start on the bench, where they do nothing. Head to the Floor Plan.', target: 'nav-floor', tab: 'floor' };
-    return !vaultStaffed
-      ? { id: 'vault', title: 'Guard the Treasure Vault', text: 'If adventurers clear the Vault, they steal your gold. Tap a benched employee, then tap the Vault (on a computer you can also drag them).', target: 'vault' }
-      : { id: 'bench', title: 'Empty the bench', text: 'Benched staff won\'t fight. Tap one, then tap a room with a free slot. Tap a room itself to see who fits it best (job-fit grades S to D).', target: 'bench' };
-  }
-  if (state.rooms.length <= 3) {
-    if (tab !== 'floor') return { id: 'build', title: 'Build a room', text: 'Head to the Floor Plan to build.', target: 'nav-floor', tab: 'floor' };
-    return {
-      id: 'build',
-      title: 'Build a room',
-      text: 'Tap an empty slot. A Medical Bay (Back Office) keeps injured staff on duty and saves lives. A Guard Post (Invasion Route) adds positions and defense.',
-      target: 'empty-slot',
-    };
+    if (tab !== 'floor') return { id: 'assign', title: 'Put everyone to work', text: 'Head back to your dungeon.', target: 'nav-floor', tab: 'floor' };
+    return { id: 'assign', title: 'Put everyone to work', text: 'Tap Auto-assign staff. It puts each monster where they fight best and guards the Treasure Vault.', target: 'auto-assign' };
   }
   return {
     id: 'go',
     title: 'Open for business',
-    text: 'Check the Incoming Visitors briefing (the Visitors tab on a phone), then press Open for Business. The fight plays out on its own. Breaches in weeks 1–4 are forgiven (probation); after that, three strikes and the Board takes over.',
+    text: 'The win chance shows how likely you are to stop this week\'s visitors. When you\'re happy, tap Open for Business. The first 6 weeks are forgiving.',
     target: 'go',
   };
 }
@@ -58,7 +51,7 @@ export function Coach({ state, tab, dispatch, onTab }: { state: GameState; tab: 
   }, [step?.target, step]);
 
   if (!step) return null;
-  const n = { hire: 1, assign: 2, vault: 2, bench: 2, build: 3, go: 4 }[step.id] ?? 1;
+  const n = { hire: 1, build: 2, assign: 3, go: 4 }[step.id] ?? 1;
   return (
     <div className="coach" role="status">
       <div className="coach-head">

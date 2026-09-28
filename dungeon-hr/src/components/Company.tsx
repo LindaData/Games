@@ -13,7 +13,7 @@ export function Research({ state, dispatch }: { state: GameState; dispatch: (a: 
     <>
       <div className="page-head">
         <div>
-          <h2>R&amp;D and Procurement</h2>
+          <h2>Upgrades</h2>
           <p>
             <span style={{ color: '#b4a4ee' }}>
               <Icon name="flask" size={14} /> {state.research} R&amp;D points

@@ -1,5 +1,5 @@
 import { generateParty, isBossWeek } from './adventurers';
-import { LEVEL_UNLOCKS, POLICIES, ROOMS, dungeonXpToNext } from './data';
+import { LEVEL_UNLOCKS, MAX_BOARD, POLICIES, ROOMS, dungeonXpToNext } from './data';
 import { getRoom, hasRoom, refreshSlots, roomStaff, vaultRoom } from './dungeon';
 import {
   accountingBonus,
@@ -17,7 +17,7 @@ import { clamp, type Rng } from './rng';
 import type { SimResult } from './sim';
 import type { GameState, Party, WeekSummary } from './types';
 
-export const PROBATION_WEEKS = 4;
+export const PROBATION_WEEKS = 6;
 
 /**
  * Applies the results of an invasion and advances the calendar by one week.
@@ -211,7 +211,7 @@ export function applyInvasion(state: GameState, party: Party, sim: SimResult, rn
   if (defended) {
     state.stats.defenses += 1;
     state.defenseStreak += 1;
-    if (state.defenseStreak >= 2 && state.board < 3) {
+    if (state.defenseStreak >= 2 && state.board < MAX_BOARD) {
       state.board += 1;
       state.defenseStreak = 0;
       notes.push('Two clean weeks in a row: the Board regains some confidence.');
@@ -223,7 +223,7 @@ export function applyInvasion(state: GameState, party: Party, sim: SimResult, rn
       notes.push(`Probationary period: the Board is overlooking this breach (${PROBATION_WEEKS - state.week} forgiving week${PROBATION_WEEKS - state.week === 1 ? '' : 's'} left).`);
     } else {
       state.board -= 1;
-      notes.push(`The Board is displeased. Board confidence: ${Math.max(0, state.board)}/3.`);
+      notes.push(`The Board is displeased. Board confidence: ${Math.max(0, state.board)}/${MAX_BOARD}.`);
     }
   }
   state.stats.slain += sim.slain;

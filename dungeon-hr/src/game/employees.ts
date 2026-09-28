@@ -300,7 +300,7 @@ export function trainingCost(e: Employee): number {
 export function medicalSaveChance(state: GameState): number {
   // Most knockouts are injuries; the Medical Bay and tech make deaths rarer still.
   const med = hasRoom(state, 'medical');
-  let p = 0.7;
+  let p = 0.82;
   if (med) {
     p += 0.1 + med.level * 0.07;
     const medic = roomStaff(state, med.id).find((m) => m.status === 'active');

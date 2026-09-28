@@ -1,4 +1,5 @@
-import { SPECIES } from '../game/data';
+import { MAX_BOARD, SPECIES } from '../game/data';
+import { recommendedOption } from '../game/advice';
 import { empById, hrOptions } from '../game/hr';
 import { title } from '../game/employees';
 import type { Action } from '../game/state';
@@ -61,6 +62,40 @@ export function Report({ state, dispatch }: { state: GameState; dispatch: (a: Ac
         </div>
       )}
 
+      <div className="summary-tiles">
+        <div className="tile">
+          <span className="k">Gold</span>
+          <b className={net >= 0 ? 'good' : 'bad'}>
+            {net >= 0 ? '+' : '−'}
+            {Math.abs(net)}g
+          </b>
+          <span className="xs muted">now {Math.round(state.gold)}g</span>
+        </div>
+        <div className="tile">
+          <span className="k">Visitors stopped</span>
+          <b>
+            {s.slain}/{s.partySize}
+          </b>
+          <span className="xs muted">{win ? 'Treasury safe' : `${s.stolen}g stolen`}</span>
+        </div>
+        <div className="tile">
+          <span className="k">Staff hurt</span>
+          <b className={s.incidents.some((i) => i.fatal) ? 'bad' : ''}>{s.incidents.length}</b>
+          <span className="xs muted">{s.incidents.filter((i) => i.fatal).length} lost</span>
+        </div>
+        <div className="tile">
+          <span className="k">Board</span>
+          <b className="hearts" style={{ display: 'inline-flex', gap: 2 }}>
+            {Array.from({ length: MAX_BOARD }, (_, i) => (
+              <Icon key={i} name="heart" size={14} className={i < state.board ? 'on' : 'off'} />
+            ))}
+          </b>
+          <span className="xs muted">{win ? 'Pleased' : 'Displeased'}</span>
+        </div>
+      </div>
+
+      <details className="panel breakdown">
+        <summary>Full breakdown: money and performance</summary>
       <div className="report-grid">
         <div className="panel panel-pad">
           <div className="section-title">
@@ -168,6 +203,7 @@ export function Report({ state, dispatch }: { state: GameState; dispatch: (a: Ac
           )}
         </div>
       </div>
+      </details>
 
       {(s.notes.length > 0 || s.departures.length > 0) && (
         <div className="panel panel-pad stack" style={{ gap: 6 }}>
@@ -231,8 +267,19 @@ export function HrInbox({ state, dispatch }: { state: GameState; dispatch: (a: A
         </div>
         <div className="xs muted memo-count">{state.hrInbox.length} memo{state.hrInbox.length === 1 ? '' : 's'} waiting</div>
         <div className="xs muted memo-help" style={{ marginBottom: 6 }}>
-          Resolve every memo before the next shift. Decisions affect morale, money, and who shows up to work.
+          Decide each memo yourself, or let HR pick the recommended option for all of them.
         </div>
+        {state.hrInbox.length > 0 && !outcome && (
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              dispatch({ type: 'HR_AUTO' });
+              play('memo');
+            }}
+          >
+            <Icon name="star" size={15} /> Handle all ({state.hrInbox.length}) with recommended choices
+          </button>
+        )}
         {outcome && (
           <div className="memo-tab current">
             <div className="from">Resolved</div>
@@ -255,7 +302,7 @@ export function HrInbox({ state, dispatch }: { state: GameState; dispatch: (a: A
               <b>Status:</b>
               <span>Decision filed</span>
             </div>
-            <div className="memo-outcome">{outcome.text}</div>
+            <div className="memo-outcome">{outcome.text.split('\n\n').map((t, i) => <p key={i}>{t}</p>)}</div>
             <button
               className="btn btn-lg"
               onClick={() => {
@@ -283,6 +330,7 @@ export function HrInbox({ state, dispatch }: { state: GameState; dispatch: (a: A
 
 function Memo({ ev, state, dispatch, e, e2 }: { ev: HrEvent; state: GameState; dispatch: (a: Action) => void; e?: ReturnType<typeof empById>; e2?: ReturnType<typeof empById> }) {
   const opts = hrOptions(state, ev);
+  const rec = recommendedOption(state, ev);
   return (
     <div className="memo" key={ev.id}>
       <div className="memo-header">
@@ -317,14 +365,17 @@ function Memo({ ev, state, dispatch, e, e2 }: { ev: HrEvent; state: GameState; d
         {opts.map((o) => (
           <button
             key={o.id}
-            className="memo-opt"
+            className={`memo-opt ${o.id === rec ? 'recommended' : ''}`}
             disabled={o.disabled}
             onClick={() => {
               dispatch({ type: 'HR_RESOLVE', eventId: ev.id, option: o.id });
               play('click');
             }}
           >
-            <b>{o.label}</b>
+            <b>
+              {o.label}
+              {o.id === rec && <span className="rec-badge">★ Recommended</span>}
+            </b>
             <span>{o.desc}</span>
           </button>
         ))}
