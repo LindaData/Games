@@ -11,6 +11,10 @@
     "chess:install": "npm --prefix chess-survivor install",
     "chess:dev": "npm --prefix chess-survivor run dev",
     "chess:build": "npm --prefix chess-survivor run build",
-    "chess:test": "npm --prefix chess-survivor test"
+    "chess:test": "npm --prefix chess-survivor test",
+    "snail:install": "npm --prefix immortal-snail install",
+    "snail:dev": "npm --prefix immortal-snail run dev",
+    "snail:build": "npm --prefix immortal-snail run build",
+    "snail:test": "npm --prefix immortal-snail test"
   }
 }

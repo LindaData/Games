@@ -1,0 +1,32 @@
+{
+  "name": "immortal-snail",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Immortal Snail Chess — normal chess against the computer, while an unkillable snail crawls toward your king.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "bench": "vite-node scripts/bench.ts"
+  },
+  "dependencies": {
+    "chess.js": "1.4.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vite-node": "^2.1.9",
+    "vitest": "^2.1.9"
+  }
+}
