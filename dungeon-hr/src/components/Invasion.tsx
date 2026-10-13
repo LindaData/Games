@@ -101,7 +101,7 @@ export function InvasionView({ state, sim, onFinish }: { state: GameState; sim: 
     while (n.idx < sim.events.length) n = step(n, sim.events[n.idx], sim.units);
     return n;
   }, init);
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed] = useState(2);
   const [paused, setPaused] = useState(false);
   const [fx, setFx] = useState<Fx[]>([]);
   const [flash, setFlash] = useState<Record<string, string>>({});

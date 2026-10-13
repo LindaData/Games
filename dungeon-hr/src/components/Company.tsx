@@ -13,7 +13,7 @@ export function Research({ state, dispatch }: { state: GameState; dispatch: (a: 
     <>
       <div className="page-head">
         <div>
-          <h2>R&amp;D and Procurement</h2>
+          <h2>Upgrades</h2>
           <p>
             <span style={{ color: '#b4a4ee' }}>
               <Icon name="flask" size={14} /> {state.research} R&amp;D points
@@ -33,7 +33,7 @@ export function Research({ state, dispatch }: { state: GameState; dispatch: (a: 
           const next = tiers[cur + 1];
           return (
             <div key={kind} style={{ marginBottom: 14 }}>
-              <div className="row">
+              <div className="row wrap">
                 <b>{kind === 'weapons' ? 'Weapons' : 'Armor'}</b>
                 <span className="muted small">
                   {kind === 'weapons' ? 'Attack' : 'Defense'} ×{tiers[cur].mult.toFixed(2)}
@@ -202,7 +202,7 @@ export function Memorial({ state }: { state: GameState }) {
         <div className="tombs">
           {state.memorial.map((m, i) => (
             <div key={i} className="tomb">
-              <div className="rip">{m.kind === 'fatality' ? 'R.I.P.' : m.kind === 'resigned' ? 'RESIGNED' : 'TERMINATED'}</div>
+              <div className="rip">{m.kind === 'fatality' ? 'R.I.P.' : m.kind === 'resigned' ? 'RESIGNED' : m.kind === 'retired' ? 'RETIRED' : 'TERMINATED'}</div>
               <Avatar kind={m.species} size={48} dead={m.kind === 'fatality'} />
               <div className="nm">{m.name}</div>
               <div className="cause">{m.cause}</div>

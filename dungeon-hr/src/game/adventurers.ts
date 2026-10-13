@@ -13,7 +13,7 @@ export function isNightWeek(week: number): boolean {
 
 export function partyLevel(week: number, dungeonLevel: number): number {
   const w = week - 1;
-  return 1 + w * 0.16 + w * w * 0.011 + (dungeonLevel - 1) * 0.3;
+  return 1 + w * 0.16 + w * w * 0.016 + (dungeonLevel - 1) * 0.3;
 }
 
 function makeAdventurer(state: GameState, cls: AdvClass, level: number, rng: Rng): Adventurer {

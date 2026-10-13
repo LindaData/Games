@@ -26,7 +26,9 @@ type IconName =
   | 'up'
   | 'warn'
   | 'chart'
-  | 'bolt';
+  | 'bolt'
+  | 'download'
+  | 'upload';
 
 const P: Record<IconName, ReactNode> = {
   hallway: (
@@ -195,6 +197,8 @@ const P: Record<IconName, ReactNode> = {
   ),
   chart: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   bolt: <path d="M13 2L4 14h7l-1 8 9-12h-7z" />,
+  download: <path d="M12 4v11M7 10l5 5 5-5M4 20h16" />,
+  upload: <path d="M12 16V5M7 10l5-5 5 5M4 20h16" />,
 };
 
 export function Icon({ name, size = 18, className, title }: { name: IconName; size?: number; className?: string; title?: string }) {

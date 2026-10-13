@@ -1,9 +1,18 @@
 import { useEffect, type ReactNode } from 'react';
-import { SPECIES, TRAITS, type Grade } from '../game/data';
-import { coreStats, hireCost, moraleLabel, powerRating, title, xpToNext } from '../game/employees';
-import type { Employee, EmployeeStatus, SpeciesId, AdvClass, TraitId } from '../game/types';
+import { GRADE_MULT, ROOMS, SPECIES, TRAITS, type Grade } from '../game/data';
+import { coreStats, hireCost, moraleLabel, powerRating, title } from '../game/employees';
+import type { Employee, EmployeeStatus, SpeciesId, AdvClass, TraitId, RoomTypeId } from '../game/types';
 import { Avatar } from '../ui/Avatar';
 import { Icon } from '../ui/Icons';
+import { isTouch, showInfo } from '../ui/infotip';
+
+const GRADE_TEXT: Record<Grade, string> = {
+  S: 'Perfect fit: ×1.30 effectiveness in this room.',
+  A: 'Great fit: ×1.15 effectiveness in this room.',
+  B: 'Normal fit: ×1.00 effectiveness.',
+  C: 'Poor fit: ×0.85 effectiveness.',
+  D: 'Bad fit: ×0.70 effectiveness.',
+};
 
 export function Modal({ title: t, onClose, children, wide, icon }: { title: ReactNode; onClose: () => void; children: ReactNode; wide?: boolean; icon?: ReactNode }) {
   useEffect(() => {
@@ -38,7 +47,15 @@ export function Portrait({ kind, hue, size = 56, dead }: { kind: SpeciesId | Adv
 export function TraitChip({ id }: { id: TraitId }) {
   const t = TRAITS[id];
   return (
-    <span className={`chip tooltip ${t.tone}`} data-tip={t.desc}>
+    <span
+      className={`chip tooltip ${t.tone}`}
+      data-tip={t.desc}
+      onClick={(e) => {
+        if (!isTouch()) return;
+        e.stopPropagation();
+        showInfo(t.name, t.desc);
+      }}
+    >
       {t.name}
     </span>
   );
@@ -46,7 +63,15 @@ export function TraitChip({ id }: { id: TraitId }) {
 
 export function GradeBadge({ g, label }: { g: Grade; label?: string }) {
   return (
-    <span className={`grade grade-${g} tooltip`} data-tip={label ?? `Job suitability: ${g}`}>
+    <span
+      className={`grade grade-${g} tooltip`}
+      data-tip={label ?? `Job suitability: ${g}`}
+      onClick={(e) => {
+        if (!isTouch()) return;
+        e.stopPropagation();
+        showInfo(`Job fit: ${g}`, `${label ? label + '. ' : ''}${GRADE_TEXT[g]}`);
+      }}
+    >
       {g}
     </span>
   );
@@ -132,6 +157,15 @@ export function Gold({ v, className }: { v: number; className?: string }) {
   );
 }
 
+/** The rooms this species is best at (S/A grades), best first. */
+export function bestJobs(e: Employee, max = 2): { name: string; grade: Grade }[] {
+  return (Object.entries(SPECIES[e.species].suit) as [RoomTypeId, Grade][])
+    .filter(([r, g]) => (g === 'S' || g === 'A') && r !== 'barracks')
+    .sort((a, b) => GRADE_MULT[b[1]] - GRADE_MULT[a[1]] || (ROOMS[a[0]].zone === 'route' ? -1 : 1))
+    .slice(0, max)
+    .map(([r, g]) => ({ name: ROOMS[r].name, grade: g }));
+}
+
 export function EmployeeCard({
   e,
   onClick,
@@ -145,58 +179,56 @@ export function EmployeeCard({
   applicant?: boolean;
   extra?: ReactNode;
 }) {
+  const s = coreStats(e);
+  const mood = moraleLabel(e.morale);
+  const jobs = bestJobs(e);
   return (
     <div className={`ecard ${onClick ? 'clickable' : ''}`} onClick={onClick}>
-      <div className="status-ribbon">
-        <StatusChip status={e.status} />
-      </div>
       <div className="ecard-head">
-        <Portrait kind={e.species} hue={e.hue} size={64} />
-        <div style={{ minWidth: 0 }}>
+        <Portrait kind={e.species} hue={e.hue} size={56} />
+        <div className="grow" style={{ minWidth: 0 }}>
           <div className="ecard-name">{e.name}</div>
-          <div className="ecard-title">{title(e)}</div>
-          <div className="ecard-meta">
-            <span className="chip" style={{ color: SPECIES[e.species].color }}>
-              {SPECIES[e.species].name}
-            </span>
-            <span className="chip gold">Lv {e.level}</span>
-            <span className="chip tooltip" data-tip="Overall power rating">
-              <Icon name="bolt" size={11} /> {powerRating(e)}
-            </span>
+          <div className="ecard-title">
+            {title(e)} · Lv {e.level}
+          </div>
+          <div className="ecard-quick">
+            HP {Math.round(s.hp)} · ATK {Math.round(s.atk)} · DEF {Math.round(s.def)}
           </div>
         </div>
+        <div className="power" title="Overall power: higher is stronger">
+          <b>{powerRating(e)}</b>
+          <span>power</span>
+        </div>
       </div>
-      {e.traits.length > 0 && (
+      {(e.traits.length > 0 || e.status !== 'active' || (!applicant && (mood.tone === 'bad' || mood.tone === 'crit' || e.fatigue > 60))) && (
         <div className="traits">
+          <StatusChip status={e.status} />
+          {!applicant && (mood.tone === 'bad' || mood.tone === 'crit') && <span className="chip bad">{mood.label}</span>}
+          {!applicant && e.fatigue > 60 && <span className="chip bad">Burnt out</span>}
           {e.traits.map((t) => (
             <TraitChip key={t} id={t} />
           ))}
         </div>
       )}
-      <StatBars e={e} />
-      {!applicant && (
-        <>
-          <MoodLine e={e} />
-          <div className="statrow">
-            <span className="lbl">XP</span>
-            <Bar value={e.xp} max={xpToNext(e.level)} color="var(--gold)" />
-            <span className="val">
-              {e.xp}/{xpToNext(e.level)}
+      {applicant && jobs.length > 0 && (
+        <div className="xs muted row wrap" style={{ gap: 6 }}>
+          Best at:
+          {jobs.map((j) => (
+            <span key={j.name} className="row" style={{ gap: 4, color: 'var(--text)' }}>
+              <GradeBadge g={j.grade} /> {j.name}
             </span>
-          </div>
-        </>
+          ))}
+        </div>
       )}
       {extra}
       <div className="ecard-foot">
-        <span className="muted">Salary</span>
         <Gold v={e.salary} />
-        <span className="dim">/wk</span>
+        <span className="dim">/week</span>
         {applicant && (
           <>
             <span className="muted" style={{ marginLeft: 8 }}>
-              Fee
+              + {hireCost(e)}g to hire
             </span>
-            <Gold v={hireCost(e)} />
           </>
         )}
         <span className="spacer" />

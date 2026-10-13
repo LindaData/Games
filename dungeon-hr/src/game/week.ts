@@ -1,5 +1,5 @@
 import { generateParty, isBossWeek } from './adventurers';
-import { LEVEL_UNLOCKS, POLICIES, ROOMS, dungeonXpToNext } from './data';
+import { LEVEL_UNLOCKS, MAX_BOARD, POLICIES, ROOMS, dungeonXpToNext } from './data';
 import { getRoom, hasRoom, refreshSlots, roomStaff, vaultRoom } from './dungeon';
 import {
   accountingBonus,
@@ -12,11 +12,12 @@ import {
   weeklySalary,
 } from './employees';
 import { generateHrEvents, removeEmployee } from './hr';
+import { weeklyRelations } from './relations';
 import { clamp, type Rng } from './rng';
 import type { SimResult } from './sim';
 import type { GameState, Party, WeekSummary } from './types';
 
-export const PROBATION_WEEKS = 4;
+export const PROBATION_WEEKS = 6;
 
 /**
  * Applies the results of an invasion and advances the calendar by one week.
@@ -24,6 +25,8 @@ export const PROBATION_WEEKS = 4;
  */
 export function applyInvasion(state: GameState, party: Party, sim: SimResult, rng: Rng): WeekSummary {
   const defended = sim.outcome === 'defended';
+  // Any one-week buff was consumed by this invasion.
+  state.weeklyBuff = null;
   const notes: string[] = [];
   const levelUps: string[] = [];
   const departures: string[] = [];
@@ -62,7 +65,7 @@ export function applyInvasion(state: GameState, party: Party, sim: SimResult, rn
     });
     if (r.died) {
       if (e.roomId) deadRooms.add(e.roomId);
-      removeEmployee(state, e.id, 'fatality', sim.incidents.find((i) => i.employee === e.name && i.fatal)?.cause ?? 'Adventurers');
+      removeEmployee(state, e.id, 'fatality', sim.incidents.find((i) => i.employee === e.name && i.fatal)?.cause ?? 'Adventurers', notes);
       state.stats.fatalities += 1;
       continue;
     }
@@ -139,6 +142,10 @@ export function applyInvasion(state: GameState, party: Party, sim: SimResult, rn
     }
   }
 
+  // Relationships drift: roommates bond, feuds form.
+  const fought = new Set(Object.entries(sim.emp).filter(([, r]) => r.fought).map(([id]) => id));
+  notes.push(...weeklyRelations(state, rng, fought, defended).slice(0, 3));
+
   // 5. Finances.
   const bounty = defended ? party.bounty : 0;
   const lootGold = sim.loot;
@@ -184,7 +191,7 @@ export function applyInvasion(state: GameState, party: Party, sim: SimResult, rn
   // 6. Immediate resignations (rock-bottom morale).
   for (const e of [...state.employees]) {
     if (e.morale <= 5) {
-      removeEmployee(state, e.id, 'resigned', 'Walked out (morale 0)');
+      removeEmployee(state, e.id, 'resigned', 'Walked out (morale 0)', notes);
       departures.push(`${e.name} walked out mid-shift, taking a stapler and three torches.`);
     }
   }
@@ -204,7 +211,7 @@ export function applyInvasion(state: GameState, party: Party, sim: SimResult, rn
   if (defended) {
     state.stats.defenses += 1;
     state.defenseStreak += 1;
-    if (state.defenseStreak >= 2 && state.board < 3) {
+    if (state.defenseStreak >= 2 && state.board < MAX_BOARD) {
       state.board += 1;
       state.defenseStreak = 0;
       notes.push('Two clean weeks in a row: the Board regains some confidence.');
@@ -216,7 +223,7 @@ export function applyInvasion(state: GameState, party: Party, sim: SimResult, rn
       notes.push(`Probationary period: the Board is overlooking this breach (${PROBATION_WEEKS - state.week} forgiving week${PROBATION_WEEKS - state.week === 1 ? '' : 's'} left).`);
     } else {
       state.board -= 1;
-      notes.push(`The Board is displeased. Board confidence: ${Math.max(0, state.board)}/3.`);
+      notes.push(`The Board is displeased. Board confidence: ${Math.max(0, state.board)}/${MAX_BOARD}.`);
     }
   }
   state.stats.slain += sim.slain;
