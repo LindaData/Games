@@ -1,18 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { Chess } from 'chess.js';
+import { MIN_THINK_MS } from '../src/ai/client';
 import { MATE, chooseMove, createRng, type AiRequest } from '../src/ai/search';
-import { DIFFICULTIES, DIFFICULTY } from '../src/game/difficulty';
+import { AI_SETTINGS, SNAIL_EVERY } from '../src/game/settings';
+import { SNAIL_START } from '../src/game/snail';
 
 const CONFIGS: [string, Omit<AiRequest, 'fen'>][] = [
+  ['the game’s AI', AI_SETTINGS],
   ['depth 1', { depth: 1 }],
   ['depth 2', { depth: 2, quiescence: true }],
   ['depth 3', { depth: 3, quiescence: true }],
-  ...DIFFICULTIES.map(
-    (d): [string, Omit<AiRequest, 'fen'>] => [
-      DIFFICULTY[d].label,
-      { depth: DIFFICULTY[d].aiDepth, randomWindow: DIFFICULTY[d].randomWindow, quiescence: DIFFICULTY[d].quiescence },
-    ],
-  ),
 ];
 
 const MATES_IN_ONE = [
@@ -29,6 +26,18 @@ function isLegal(fen: string, m: { from: string; to: string; promotion?: string 
     (x) => x.from === m.from && x.to === m.to && (x.promotion ?? undefined) === (m.promotion ?? undefined),
   );
 }
+
+describe('fixed settings (one mode, no difficulty)', () => {
+  it('the snail starts on a8 and crawls every 2nd turn', () => {
+    expect(SNAIL_START).toBe('a8');
+    expect(SNAIL_EVERY).toBe(2);
+  });
+
+  it('the computer is friendly: depth 1, random within 80 centipawns, at least 400 ms per move', () => {
+    expect(AI_SETTINGS).toEqual({ depth: 1, randomWindow: 80, quiescence: false });
+    expect(MIN_THINK_MS).toBe(400);
+  });
+});
 
 describe('AI', () => {
   for (const [name, cfg] of CONFIGS) {
@@ -96,11 +105,11 @@ describe('AI', () => {
     expect(checked).toBeGreaterThan(30);
   });
 
-  it('Easy mode varies its play with the seed but stays legal', () => {
+  it('the game’s AI varies its play with the seed but stays legal', () => {
     const fen = 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 3 3';
     const picks = new Set<string>();
     for (let seed = 0; seed < 20; seed++) {
-      const r = chooseMove({ fen, depth: 1, randomWindow: 80, seed });
+      const r = chooseMove({ fen, ...AI_SETTINGS, seed });
       expect(isLegal(fen, r)).toBe(true);
       picks.add(`${r.from}${r.to}`);
     }

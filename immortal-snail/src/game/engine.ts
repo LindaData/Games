@@ -15,7 +15,6 @@
  */
 import { Chess, validateFen, type Color, type PieceSymbol, type Square } from 'chess.js';
 import { FastBoard, sqFrom0x88 } from '../chess/fast';
-import { DEFAULT_DIFFICULTY, isDifficulty, type Difficulty } from './difficulty';
 import { SNAIL_START, chebyshev, fileOf, isSquare, nextSnailStep, snailMovesAfterTurn } from './snail';
 
 export type Phase = 'white' | 'black' | 'snail' | 'over';
@@ -78,7 +77,6 @@ export interface GameSetup {
 }
 
 export interface GameState {
-  readonly difficulty: Difficulty;
   /** Custom starting point, or null for a standard game. */
   readonly setup: GameSetup | null;
   /** Every half-move so far in UCI form (e2e4, e7e8q), both colours. */
@@ -150,24 +148,32 @@ const RESULTS: Record<Cause, GameResult> = {
     title: 'You win!',
     reason: 'You beat the computer before the snail got you!',
   },
-  checkmated: { outcome: 'loss', cause: 'checkmated', title: 'Checkmate', reason: 'The computer checkmated your king.' },
-  snail: { outcome: 'loss', cause: 'snail', title: 'The snail got you', reason: 'It touched your king. It always does, eventually.' },
+  checkmated: { outcome: 'loss', cause: 'checkmated', title: 'Checkmate — you lose', reason: 'The computer checkmated your king.' },
+  snail: { outcome: 'loss', cause: 'snail', title: 'The snail got you!', reason: 'It touched your king.' },
   cornered: {
     outcome: 'loss',
     cause: 'cornered',
-    title: 'The snail cornered you',
-    reason: 'Your only legal moves were onto the snail.',
+    title: 'The snail trapped your king',
+    reason: 'Your only moves were onto the snail.',
   },
-  stalemate: { outcome: 'draw', cause: 'stalemate', title: 'Draw', reason: 'Stalemate: no legal moves, but no check.' },
+  stalemate: {
+    outcome: 'draw',
+    cause: 'stalemate',
+    title: 'Draw',
+    reason: 'The computer can’t move, but it isn’t in check (stalemate).',
+  },
   threefold: { outcome: 'draw', cause: 'threefold', title: 'Draw', reason: 'The same position came up three times.' },
   'fifty-move': { outcome: 'draw', cause: 'fifty-move', title: 'Draw', reason: '50 moves without a capture or pawn move.' },
   insufficient: { outcome: 'draw', cause: 'insufficient', title: 'Draw', reason: 'Not enough pieces left to checkmate.' },
 };
 
+/** RESULTS.stalemate is the computer being stuck; this is the player. */
+const PLAYER_STALEMATED: GameResult = { ...RESULTS.stalemate, reason: 'You can’t move, but you aren’t in check (stalemate).' };
+
 /** The chess.js verdict for the side to move, or null if the game goes on. */
 function chessVerdict(chess: Chess): GameResult | null {
   if (chess.isCheckmate()) return RESULTS[chess.turn() === 'b' ? 'checkmate' : 'checkmated'];
-  if (chess.isStalemate()) return RESULTS.stalemate;
+  if (chess.isStalemate()) return chess.turn() === 'b' ? RESULTS.stalemate : PLAYER_STALEMATED;
   if (chess.isInsufficientMaterial()) return RESULTS.insufficient;
   if (chess.isThreefoldRepetition()) return RESULTS.threefold;
   if (chess.isDrawByFiftyMoves()) return RESULTS['fifty-move'];
@@ -260,18 +266,17 @@ export function snailJustCrawled(state: GameState): boolean {
     state.phase === 'white' &&
     state.lastSnailStep !== null &&
     state.turn > 1 &&
-    snailMovesAfterTurn(state.turn - 1, state.difficulty)
+    snailMovesAfterTurn(state.turn - 1)
   );
 }
 
 // ---------------------------------------------------------------------------
 // transitions
 
-export function newGame(difficulty: Difficulty = DEFAULT_DIFFICULTY, setup: GameSetup | null = null): GameState {
+export function newGame(setup: GameSetup | null = null): GameState {
   const custom = setup && (setup.fen || setup.snail) ? { ...setup } : null;
   const chess = replay(custom, []);
   const state: GameState = {
-    difficulty,
     setup: custom,
     history: [],
     fen: chess.fen(),
@@ -365,7 +370,7 @@ export function applyBlackMove(state: GameState, input: MoveInput): GameState {
     chess,
   );
   if (verdict) return next;
-  if (snailMovesAfterTurn(state.turn, state.difficulty)) return next;
+  if (snailMovesAfterTurn(state.turn)) return next;
   return startNextTurn(next);
 }
 
@@ -389,8 +394,7 @@ export function applyBlackReply(state: GameState, input: MoveInput): GameState {
 // save / restore
 
 export interface SavedGame {
-  v: 1;
-  difficulty: Difficulty;
+  v: 2;
   setup?: GameSetup;
   moves: string[];
   snail: Square;
@@ -398,7 +402,7 @@ export interface SavedGame {
 }
 
 export function toSaved(state: GameState): SavedGame {
-  const saved: SavedGame = { v: 1, difficulty: state.difficulty, moves: [...state.history], snail: state.snail, turn: state.turn };
+  const saved: SavedGame = { v: 2, moves: [...state.history], snail: state.snail, turn: state.turn };
   if (state.setup) saved.setup = { ...state.setup };
   return saved;
 }
@@ -417,8 +421,7 @@ export function restoreGame(raw: string | null | undefined): GameState | null {
   if (!raw) return null;
   try {
     const data = JSON.parse(raw) as Partial<SavedGame> | null;
-    if (!data || typeof data !== 'object' || data.v !== 1) return null;
-    if (!isDifficulty(data.difficulty) || !isSquare(data.snail)) return null;
+    if (!data || typeof data !== 'object' || data.v !== 2 || !isSquare(data.snail)) return null;
     if (!Array.isArray(data.moves) || !data.moves.every((m) => typeof m === 'string' && UCI_RE.test(m))) return null;
     if (typeof data.turn !== 'number' || !Number.isInteger(data.turn) || data.turn < 1) return null;
     let setup: GameSetup | null = null;
@@ -430,7 +433,7 @@ export function restoreGame(raw: string | null | undefined): GameState | null {
       setup = { fen, snail };
     }
 
-    let s = newGame(data.difficulty, setup);
+    let s = newGame(setup);
     for (const uci of data.moves) {
       if (s.phase === 'snail') s = advanceSnail(s);
       if (s.phase === 'white') s = applyWhiteMove(s, parseUci(uci));

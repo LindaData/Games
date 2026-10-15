@@ -5,7 +5,7 @@
  * - Move ordering: captures by MVV-LVA first, then promotions and checks.
  * - Checkmate is scored by distance (MATE - ply) so faster mates are preferred.
  * - Optional capture-only quiescence search at the leaves.
- * - Easy mode scores every root move exactly and picks randomly within a centipawn window.
+ * - Optionally scores every root move exactly and picks randomly within a centipawn window.
  *
  * It only ever plays moves chess.js generated as legal, and it ignores the snail entirely.
  */
@@ -18,7 +18,7 @@ export interface AiRequest {
   /** > 0: pick randomly among root moves scoring within this many centipawns of the best. */
   randomWindow?: number;
   quiescence?: boolean;
-  /** Seed for tie-shuffling and Easy-mode randomness. */
+  /** Seed for tie-shuffling and the random pick (randomWindow). */
   seed?: number;
 }
 

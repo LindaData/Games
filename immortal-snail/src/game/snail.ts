@@ -3,7 +3,7 @@
  * its own square that crawls one king-step at a time toward the white king.
  */
 import type { Square } from 'chess.js';
-import { DIFFICULTY, type Difficulty } from './difficulty';
+import { SNAIL_EVERY } from './settings';
 
 export const SNAIL_START: Square = 'a8';
 
@@ -80,21 +80,16 @@ export function nextSnailStep(snail: Square, target: Square): Square {
   return best;
 }
 
-export function snailEvery(difficulty: Difficulty): number {
-  return DIFFICULTY[difficulty].snailEvery;
-}
-
 /** Does the snail crawl after (Black's reply in) this turn? Turn 1 is the first turn. */
-export function snailMovesAfterTurn(turn: number, difficulty: Difficulty): boolean {
-  return turn % snailEvery(difficulty) === 0;
+export function snailMovesAfterTurn(turn: number): boolean {
+  return turn % SNAIL_EVERY === 0;
 }
 
 /**
  * How many turns (counting the current one) until the snail crawls:
  * 1 = "after this turn", 2 = after the next turn, and so on.
  */
-export function turnsUntilSnailMoves(turn: number, difficulty: Difficulty): number {
-  const every = snailEvery(difficulty);
-  const r = turn % every;
-  return r === 0 ? 1 : every - r + 1;
+export function turnsUntilSnailMoves(turn: number): number {
+  const r = turn % SNAIL_EVERY;
+  return r === 0 ? 1 : SNAIL_EVERY - r + 1;
 }

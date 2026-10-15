@@ -36,7 +36,7 @@ function play(s: GameState, ucis: string[]): GameState {
 
 describe('new game', () => {
   it('starts from the standard position with the snail on a8', () => {
-    const s = newGame('normal');
+    const s = newGame();
     expect(s.fen).toBe(new Chess().fen());
     expect(s.snail).toBe('a8');
     expect(s.turn).toBe(1);
@@ -47,7 +47,7 @@ describe('new game', () => {
 
 describe('the king and the snail', () => {
   it('the white king can never step onto the snail', () => {
-    const s = newGame('normal', { fen: '4k3/8/8/8/8/8/P7/4K3 w - - 0 1', snail: 'd2' });
+    const s = newGame({ fen: '4k3/8/8/8/8/8/P7/4K3 w - - 0 1', snail: 'd2' });
     expect(has(s, 'e1d2')).toBe(false);
     expect(has(s, 'e1d1')).toBe(true);
     expect(has(s, 'e1f2')).toBe(true);
@@ -56,23 +56,23 @@ describe('the king and the snail', () => {
 
   it('blocks castling whose king destination is the snail square', () => {
     const fen = 'r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1';
-    const free = newGame('normal', { fen, snail: 'a8' });
+    const free = newGame({ fen, snail: 'a8' });
     expect(has(free, 'e1g1')).toBe(true);
     expect(has(free, 'e1c1')).toBe(true);
 
-    const s = newGame('normal', { fen, snail: 'g1' });
+    const s = newGame({ fen, snail: 'g1' });
     expect(has(s, 'e1g1')).toBe(false);
     expect(has(s, 'e1c1')).toBe(true);
     // Other pieces may move onto the snail's square.
     expect(has(s, 'h1g1')).toBe(true);
 
-    const q = newGame('normal', { fen, snail: 'c1' });
+    const q = newGame({ fen, snail: 'c1' });
     expect(has(q, 'e1c1')).toBe(false);
     expect(has(q, 'e1g1')).toBe(true);
   });
 
   it('lets any other piece share the snail square', () => {
-    const s = newGame('normal', { fen: '4k3/8/8/8/8/8/P7/4K2N w - - 0 1', snail: 'g3' });
+    const s = newGame({ fen: '4k3/8/8/8/8/8/P7/4K2N w - - 0 1', snail: 'g3' });
     expect(has(s, 'h1g3')).toBe(true);
     const after = applyWhiteMove(s, { from: 'h1', to: 'g3' });
     expect(pieceAt(after, 'g3')).toEqual({ type: 'n', color: 'w' });
@@ -80,67 +80,84 @@ describe('the king and the snail', () => {
   });
 
   it('loses when the snail crawls onto the king', () => {
-    let s = newGame('hard', { fen: '4k3/8/8/8/8/8/P7/4K3 w - - 0 1', snail: 'e2' });
-    s = applyWhiteMove(s, { from: 'a2', to: 'a3' });
-    s = applyBlackMove(s, { from: 'e8', to: 'd8' });
+    let s = newGame({ fen: '4k3/8/8/8/8/8/P7/4K3 w - - 0 1', snail: 'e2' });
+    s = play(s, ['a2a3', 'e8d8']); // turn 1: no crawl
+    expect(s.snail).toBe('e2');
+    s = applyWhiteMove(s, { from: 'a3', to: 'a4' });
+    s = applyBlackMove(s, { from: 'd8', to: 'e8' }); // turn 2: the snail is due
     expect(s.phase).toBe('snail');
     expect(snailPreview(s)).toBe('e1');
     s = advanceSnail(s);
     expect(s.phase).toBe('over');
     expect(s.snail).toBe('e1');
     expect(s.lastSnailStep).toEqual({ from: 'e2', to: 'e1' });
-    expect(s.result).toMatchObject({ outcome: 'loss', cause: 'snail', title: 'The snail got you' });
+    expect(s.result).toMatchObject({ outcome: 'loss', cause: 'snail', title: 'The snail got you!' });
   });
 
   it('does not crawl when Black’s reply checkmates', () => {
-    let s = newGame('hard', { fen: 'r5k1/5ppp/8/8/8/8/1P4PP/7K w - - 0 1', snail: 'f3' });
-    s = applyWhiteMove(s, { from: 'b2', to: 'b3' });
-    s = applyBlackMove(s, { from: 'a8', to: 'a1' });
+    let s = newGame({ fen: 'r5k1/5ppp/8/8/8/8/1P4PP/7K w - - 0 1', snail: 'f3' });
+    s = play(s, ['b2b3', 'g8f8']);
+    expect(s.turn).toBe(2); // the snail is due after this turn...
+    s = applyWhiteMove(s, { from: 'b3', to: 'b4' });
+    s = applyBlackMove(s, { from: 'a8', to: 'a1' }); // ...but the reply mates
     expect(s.phase).toBe('over');
-    expect(s.result).toMatchObject({ outcome: 'loss', cause: 'checkmated', title: 'Checkmate' });
+    expect(s.result).toMatchObject({ outcome: 'loss', cause: 'checkmated', title: 'Checkmate — you lose' });
     expect(s.snail).toBe('f3');
     expect(s.lastSnailStep).toBeNull();
   });
 
   it('does not crawl when Black’s reply draws by threefold repetition', () => {
-    const s = play(newGame('normal'), ['g1f3', 'g8f6', 'f3g1', 'f6g8', 'g1f3', 'g8f6', 'f3g1', 'f6g8']);
+    const s = play(newGame(), ['g1f3', 'g8f6', 'f3g1', 'f6g8', 'g1f3', 'g8f6', 'f3g1', 'f6g8']);
     expect(s.phase).toBe('over');
     expect(s.result).toMatchObject({ outcome: 'draw', cause: 'threefold' });
-    // Normal crawls after turns 2 and 4; turn 4's crawl is cancelled by the draw.
+    // The snail crawls after turns 2 and 4; turn 4's crawl is cancelled by the draw.
     expect(s.snail).toBe('b7');
     expect(s.turn).toBe(4);
   });
 
-  it('loses when the snail corners the king (no legal moves left after the snail filter)', () => {
-    // White: Ka1, a2 (blocked), h2. Black: Ka8, a3 (covers b2), h4.
-    let s = newGame('hard', { fen: 'k7/8/8/8/7p/p7/P6P/K7 w - - 0 1', snail: 'c2' });
+  it('loses when the snail traps the king (no legal moves left after the snail filter)', () => {
+    // White: Ka1, a2 (blocked), h2. Black: Ka8, a3 (covers b2), h5.
+    let s = newGame({ fen: 'k7/8/8/7p/8/p7/P6P/K7 w - - 0 1', snail: 'c2' });
     expect(s.phase).toBe('white');
-    s = applyWhiteMove(s, { from: 'h2', to: 'h3' }); // now blocked by h4
-    s = applyBlackReply(s, { from: 'a8', to: 'b8' }); // snail c2 -> b1
+    s = play(s, ['h2h3', 'a8b8']); // turn 1: no crawl
+    expect(s.snail).toBe('c2');
+    s = play(s, ['h3h4', 'b8a8']); // the h-pawn is now blocked by h5; turn 2: snail c2 -> b1
     expect(s.snail).toBe('b1');
     expect(new Chess(s.fen).moves()).toEqual(['Kb1']); // chess.js still has a move...
     expect(s.phase).toBe('over'); // ...but it's onto the snail
-    expect(s.result).toMatchObject({ outcome: 'loss', cause: 'cornered', title: 'The snail cornered you' });
+    expect(s.result).toMatchObject({ outcome: 'loss', cause: 'cornered', title: 'The snail trapped your king' });
   });
 
-  it('crawls on schedule: Normal after turns 2 and 4', () => {
-    let s = play(newGame('normal'), ['e2e4', 'e7e5']);
-    expect(s.snail).toBe('a8');
-    expect(s.turn).toBe(2);
-    s = play(s, ['g1f3', 'b8c6']);
-    expect(s.snail).toBe('b7');
-    expect(s.turn).toBe(3);
-    s = play(s, ['f1c4', 'g8f6']);
-    expect(s.snail).toBe('b7');
-    s = play(s, ['d2d3', 'f8c5']);
-    expect(s.snail).toBe('c6');
-    expect(s.turn).toBe(5);
+  it('crawls exactly after turns 2, 4, 6 (not 1, 3, 5)', () => {
+    const turns: [string, string][] = [
+      ['e2e4', 'e7e5'],
+      ['g1f3', 'b8c6'],
+      ['f1c4', 'g8f6'],
+      ['d2d3', 'f8c5'],
+      ['b1c3', 'd7d6'],
+      ['c1g5', 'c8g4'],
+    ];
+    const squares: string[] = [];
+    let s = newGame();
+    turns.forEach(([white, black], i) => {
+      const turn = i + 1;
+      expect(s.turn).toBe(turn);
+      s = applyWhiteMove(s, parseUci(white));
+      s = applyBlackMove(s, parseUci(black));
+      // After Black's reply the snail is due on even turns only.
+      expect(s.phase, `turn ${turn}`).toBe(turn % 2 === 0 ? 'snail' : 'white');
+      if (s.phase === 'snail') s = advanceSnail(s);
+      squares.push(s.snail);
+    });
+    expect(squares).toEqual(['a8', 'b7', 'b7', 'c6', 'c6', 'd5']);
+    expect(s.turn).toBe(7);
   });
 
   it('follows the king when it moves', () => {
-    let s = newGame('hard', { fen: '4k3/8/8/8/8/8/P7/4K3 w - - 0 1', snail: 'e4' });
+    let s = newGame({ fen: '4k3/8/8/8/8/8/P7/4K3 w - - 0 1', snail: 'e4' });
+    s = play(s, ['a2a3', 'e8d8']); // turn 1: no crawl
     s = applyWhiteMove(s, { from: 'e1', to: 'f1' });
-    s = applyBlackReply(s, { from: 'e8', to: 'd8' });
+    s = applyBlackReply(s, { from: 'd8', to: 'e8' });
     expect(kingSquare(s, 'w')).toBe('f1');
     expect(s.snail).toBe('f3');
   });
@@ -148,7 +165,7 @@ describe('the king and the snail', () => {
 
 describe('results', () => {
   it('wins by checkmating the computer', () => {
-    let s = newGame('normal', { fen: '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1' });
+    let s = newGame({ fen: '6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1' });
     s = applyWhiteMove(s, { from: 'a1', to: 'a8' });
     expect(s.phase).toBe('over');
     expect(s.result).toMatchObject({
@@ -159,29 +176,37 @@ describe('results', () => {
   });
 
   it('draws when the player stalemates the computer', () => {
-    let s = newGame('normal', { fen: 'k7/8/8/1Q6/8/8/8/K7 w - - 0 1' });
+    let s = newGame({ fen: 'k7/8/8/1Q6/8/8/8/K7 w - - 0 1' });
     s = applyWhiteMove(s, { from: 'b5', to: 'b6' });
     expect(s.phase).toBe('over');
-    expect(s.result).toMatchObject({ outcome: 'draw', cause: 'stalemate' });
+    expect(s.result).toMatchObject({
+      outcome: 'draw',
+      cause: 'stalemate',
+      reason: 'The computer can’t move, but it isn’t in check (stalemate).',
+    });
   });
 
   it('draws on insufficient material', () => {
-    let s = newGame('normal', { fen: '4k3/8/8/8/8/8/3n4/4KB2 w - - 0 1' });
+    let s = newGame({ fen: '4k3/8/8/8/8/8/3n4/4KB2 w - - 0 1' });
     s = applyWhiteMove(s, { from: 'e1', to: 'd2' });
     expect(s.result).toMatchObject({ outcome: 'draw', cause: 'insufficient' });
   });
 
   it('draws when the computer stalemates the player (not a snail loss)', () => {
     // After ...Qb3 the white king on a1 has no moves and is not in check.
-    let s = newGame('hard', { fen: 'k7/8/8/8/8/8/2q5/K7 b - - 0 1', snail: 'h8' });
+    let s = newGame({ fen: 'k7/8/8/8/8/8/2q5/K7 b - - 0 1', snail: 'h8' });
     s = applyBlackMove(s, { from: 'c2', to: 'b3' });
     expect(s.phase).toBe('over');
-    expect(s.result).toMatchObject({ outcome: 'draw', cause: 'stalemate' });
+    expect(s.result).toMatchObject({
+      outcome: 'draw',
+      cause: 'stalemate',
+      reason: 'You can’t move, but you aren’t in check (stalemate).',
+    });
     expect(s.snail).toBe('h8');
   });
 
   it('auto-queens the player’s promotions', () => {
-    const s = newGame('normal', { fen: '8/P6k/8/8/8/8/8/K7 w - - 0 1' });
+    const s = newGame({ fen: '8/P6k/8/8/8/8/8/K7 w - - 0 1' });
     const promos = whiteMoves(s).filter((m) => m.from === 'a7');
     expect(promos).toHaveLength(1);
     expect(promos[0].promotion).toBe('q');
@@ -191,7 +216,7 @@ describe('results', () => {
   });
 
   it('rejects moves out of turn', () => {
-    const s = newGame('normal');
+    const s = newGame();
     expect(() => applyBlackMove(s, { from: 'e7', to: 'e5' })).toThrow(IllegalMoveError);
     expect(() => advanceSnail(s)).toThrow(IllegalMoveError);
   });
@@ -199,26 +224,26 @@ describe('results', () => {
 
 describe('what the UI shows about a position', () => {
   it('finds both kings', () => {
-    const s = newGame('normal', { fen: '6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1' });
+    const s = newGame({ fen: '6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1' });
     expect(kingSquare(s, 'w')).toBe('g1');
     expect(kingSquare(s, 'b')).toBe('g8');
   });
 
   it('focuses the mated black king on a win and the white king otherwise', () => {
-    let win = newGame('normal', { fen: '6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1' });
+    let win = newGame({ fen: '6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1' });
     expect(focalKing(win)).toBe('g1');
     win = applyWhiteMove(win, { from: 'd1', to: 'd8' });
     expect(win.result?.outcome).toBe('win');
     expect(focalKing(win)).toBe('g8');
 
-    let loss = newGame('hard', { fen: 'r5k1/5ppp/8/8/8/8/1P4PP/7K w - - 0 1', snail: 'f3' });
+    let loss = newGame({ fen: 'r5k1/5ppp/8/8/8/8/1P4PP/7K w - - 0 1', snail: 'f3' });
     loss = play(loss, ['b2b3', 'a8a1']);
     expect(loss.result?.outcome).toBe('loss');
     expect(focalKing(loss)).toBe('h1');
   });
 
   it('describes the computer’s last move in words', () => {
-    let s = play(newGame('normal'), ['e2e4']);
+    let s = play(newGame(), ['e2e4']);
     expect(describeComputerMove(s)).toBeNull(); // White moved last
     s = play(s, ['g8f6']);
     expect(s.lastMove).toEqual({ from: 'g8', to: 'f6', color: 'b', piece: 'n' });
@@ -228,18 +253,18 @@ describe('what the UI shows about a position', () => {
     s = play(s, ['e7f6']);
     expect(describeComputerMove(s)).toBe('Computer played pawn e7 to f6, taking your pawn.');
 
-    const castle = newGame('normal', { fen: 'r3k2r/8/8/8/8/8/8/4K3 b kq - 0 1' });
+    const castle = newGame({ fen: 'r3k2r/8/8/8/8/8/8/4K3 b kq - 0 1' });
     expect(describeComputerMove(applyBlackMove(castle, { from: 'e8', to: 'g8' }))).toBe(
       'Computer played king e8 to g8, castling.',
     );
-    const promo = newGame('normal', { fen: '7k/8/8/8/8/8/p7/7K b - - 0 1' });
+    const promo = newGame({ fen: '7k/8/8/8/8/8/p7/7K b - - 0 1' });
     expect(describeComputerMove(applyBlackMove(promo, { from: 'a2', to: 'a1', promotion: 'q' }))).toBe(
       'Computer played pawn a2 to a1, promoting to a queen.',
     );
   });
 
   it('knows when the snail has just crawled', () => {
-    let s = play(newGame('normal'), ['e2e4', 'e7e5']); // turn 1: no crawl on Normal
+    let s = play(newGame(), ['e2e4', 'e7e5']); // turn 1: no crawl
     expect(s.turn).toBe(2);
     expect(snailJustCrawled(s)).toBe(false);
     s = play(s, ['g1f3', 'b8c6']); // turn 2: crawl
@@ -249,17 +274,13 @@ describe('what the UI shows about a position', () => {
     expect(snailJustCrawled(s)).toBe(false); // computer's turn
     s = play(s, ['g8f6']); // turn 3: no crawl
     expect(snailJustCrawled(s)).toBe(false);
-
-    const hard = play(newGame('hard'), ['e2e4', 'e7e5']);
-    expect(hard.snail).toBe('b7');
-    expect(snailJustCrawled(hard)).toBe(true);
   });
 });
 
 describe('save and resume', () => {
   /** A real game: the player plays seeded random moves, the computer answers at depth 1. */
-  function sampleGame(difficulty: 'easy' | 'normal' | 'hard', plies: number, seed = 3): GameState {
-    let s = newGame(difficulty);
+  function sampleGame(plies: number, seed: number): GameState {
+    let s = newGame();
     let r = seed;
     const rand = () => ((r = (r * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
     for (let i = 0; i < plies && s.phase !== 'over'; i++) {
@@ -278,8 +299,8 @@ describe('save and resume', () => {
   const comparable = (s: GameState) => ({ ...s });
 
   it('round-trips a game in progress', () => {
-    for (const d of ['easy', 'normal', 'hard'] as const) {
-      const s = sampleGame(d, 24);
+    for (const seed of [3, 7, 11]) {
+      const s = sampleGame(24, seed);
       const restored = restoreGame(serializeGame(s));
       expect(restored).not.toBeNull();
       expect(comparable(restored!)).toEqual(comparable(s));
@@ -288,7 +309,7 @@ describe('save and resume', () => {
   });
 
   it('round-trips while waiting for the computer and between reply and crawl', () => {
-    let s = play(newGame('normal'), ['e2e4', 'e7e5', 'd2d4']);
+    let s = play(newGame(), ['e2e4', 'e7e5', 'd2d4']);
     expect(s.phase).toBe('black');
     expect(comparable(restoreGame(serializeGame(s))!)).toEqual(comparable(s));
 
@@ -301,21 +322,22 @@ describe('save and resume', () => {
   });
 
   it('round-trips finished games, including a snail loss', () => {
-    let s = newGame('hard', { fen: '4k3/8/8/8/8/8/P7/4K3 w - - 0 1', snail: 'e2' });
-    s = play(s, ['a2a3', 'e8d8']);
+    let s = newGame({ fen: '4k3/8/8/8/8/8/P7/4K3 w - - 0 1', snail: 'e2' });
+    s = play(s, ['a2a3', 'e8d8', 'a3a4', 'd8e8']);
     expect(s.result?.cause).toBe('snail');
     const restored = restoreGame(serializeGame(s))!;
     expect(comparable(restored)).toEqual(comparable(s));
   });
 
   it('returns null for missing or corrupt data', () => {
-    const good = toSaved(play(newGame('normal'), ['e2e4', 'e7e5']));
+    const good = toSaved(play(newGame(), ['e2e4', 'e7e5']));
     expect(restoreGame(null)).toBeNull();
     expect(restoreGame('')).toBeNull();
     expect(restoreGame('{not json')).toBeNull();
     expect(restoreGame('null')).toBeNull();
-    expect(restoreGame(JSON.stringify({ ...good, v: 2 }))).toBeNull();
-    expect(restoreGame(JSON.stringify({ ...good, difficulty: 'insane' }))).toBeNull();
+    expect(restoreGame(JSON.stringify({ ...good, v: 1 }))).toBeNull();
+    // A save from the old version with difficulty levels is ignored.
+    expect(restoreGame(JSON.stringify({ ...good, v: 1, difficulty: 'normal' }))).toBeNull();
     expect(restoreGame(JSON.stringify({ ...good, moves: ['e2e5'] }))).toBeNull();
     expect(restoreGame(JSON.stringify({ ...good, moves: 'e2e4' }))).toBeNull();
     expect(restoreGame(JSON.stringify({ ...good, snail: 'z9' }))).toBeNull();

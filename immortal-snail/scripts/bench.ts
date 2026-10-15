@@ -1,10 +1,9 @@
 /**
- * Times the AI on a few middlegame positions at every difficulty.
+ * Times the game's AI (AI_SETTINGS) on a few middlegame positions.
  * Run with: npm run bench
  */
-import { Chess } from 'chess.js';
-import { chooseMove, createRng } from '../src/ai/search';
-import { DIFFICULTIES, DIFFICULTY } from '../src/game/difficulty';
+import { chooseMove } from '../src/ai/search';
+import { AI_SETTINGS } from '../src/game/settings';
 
 const POSITIONS: [string, string][] = [
   ['Italian, move 6', 'r1bq1rk1/pppp1ppp/2n2n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 b - - 0 6'],
@@ -14,40 +13,11 @@ const POSITIONS: [string, string][] = [
   ['Kiwipete (busy)', 'r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R b KQkq - 0 1'],
 ];
 
-for (const d of DIFFICULTIES) {
-  const s = DIFFICULTY[d];
-  const times: number[] = [];
-  for (const [name, fen] of POSITIONS) {
-    const r = chooseMove({ fen, depth: s.aiDepth, randomWindow: s.randomWindow, quiescence: s.quiescence, seed: 7 });
-    times.push(r.ms);
-    console.log(`${s.label.padEnd(6)} ${name.padEnd(26)} ${r.from}${r.to}${r.promotion ?? ''}  ${String(r.ms).padStart(5)} ms  ${r.nodes} nodes  score ${r.score}`);
-  }
-  const avg = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
-  console.log(`${s.label}: avg ${avg} ms, max ${Math.max(...times)} ms\n`);
+const times: number[] = [];
+for (const [name, fen] of POSITIONS) {
+  const r = chooseMove({ fen, ...AI_SETTINGS, seed: 7 });
+  times.push(r.ms);
+  console.log(`${name.padEnd(26)} ${r.from}${r.to}${r.promotion ?? ''}  ${String(r.ms).padStart(5)} ms  ${r.nodes} nodes  score ${r.score}`);
 }
-
-// Broader sample: middlegames reached by the Normal AI playing itself from varied openings.
-const rng = createRng(2026);
-const samples: number[] = [];
-for (let g = 0; g < 40; g++) {
-  const c = new Chess();
-  // A few random opening plies for variety, then Normal-strength self-play into the middlegame.
-  for (let i = 0; i < 4; i++) {
-    const ms = c.moves();
-    c.move(ms[Math.floor(rng() * ms.length)]);
-  }
-  const target = 16 + Math.floor(rng() * 20);
-  while (c.history().length < target && !c.isGameOver()) {
-    const r = chooseMove({ fen: c.fen(), depth: 2, quiescence: true, seed: g * 100 + c.history().length });
-    c.move({ from: r.from, to: r.to, promotion: r.promotion });
-  }
-  if (c.isGameOver()) continue;
-  const s = DIFFICULTY.hard;
-  const r = chooseMove({ fen: c.fen(), depth: s.aiDepth, quiescence: s.quiescence, seed: g });
-  samples.push(r.ms);
-}
-samples.sort((a, b) => a - b);
-const pct = (p: number) => samples[Math.min(samples.length - 1, Math.floor((p / 100) * samples.length))];
-console.log(
-  `Hard on ${samples.length} self-play middlegames: median ${pct(50)} ms, p90 ${pct(90)} ms, max ${samples[samples.length - 1]} ms, avg ${Math.round(samples.reduce((a, b) => a + b, 0) / samples.length)} ms`,
-);
+const avg = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+console.log(`avg ${avg} ms, max ${Math.max(...times)} ms`);

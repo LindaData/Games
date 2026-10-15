@@ -1,11 +1,14 @@
 /**
  * localStorage helpers. Every access is wrapped in try/catch: storage can be missing, blocked
  * or full (private windows, embedded viewers), and the game must work fine without it.
+ * Keys left by the old version with difficulty levels (`game`, `stats`, `difficulty`) are ignored.
  */
-import { DIFFICULTIES, isDifficulty, type Difficulty } from './game/difficulty';
-import type { Outcome } from './game/engine';
+import { newGame, restoreGame, serializeGame, type GameState, type Outcome } from './game/engine';
 
 const PREFIX = 'immortal-snail:';
+const GAME_KEY = 'game:v2';
+const STATS_KEY = 'stats:v2';
+const RULES_KEY = 'rules-seen';
 
 function read(key: string): string | null {
   try {
@@ -25,64 +28,55 @@ function write(key: string, value: string): void {
 
 // ---- saved game -------------------------------------------------------------
 
-export function loadSavedGame(): string | null {
-  return read('game');
+/** The saved game, or a fresh game when there is none or it is corrupt. */
+export function loadGame(): GameState {
+  return restoreGame(read(GAME_KEY)) ?? newGame();
 }
 
-export function saveGame(json: string): void {
-  write('game', json);
+export function saveGame(game: GameState): void {
+  write(GAME_KEY, serializeGame(game));
 }
 
-// ---- difficulty preference --------------------------------------------------
+// ---- rules card -------------------------------------------------------------
 
-export function loadDifficulty(): Difficulty | null {
-  const d = read('difficulty');
-  return isDifficulty(d) ? d : null;
+/** Has the player closed the rules card before? (It opens by itself only on the first visit.) */
+export function loadRulesSeen(): boolean {
+  return read(RULES_KEY) === '1';
 }
 
-export function saveDifficulty(d: Difficulty): void {
-  write('difficulty', d);
+export function saveRulesSeen(): void {
+  write(RULES_KEY, '1');
 }
 
 // ---- stats ------------------------------------------------------------------
 
-export interface Record3 {
+export interface Stats {
   w: number;
   l: number;
   d: number;
 }
-export type Stats = Record<Difficulty, Record3>;
 
 export function emptyStats(): Stats {
-  return { easy: { w: 0, l: 0, d: 0 }, normal: { w: 0, l: 0, d: 0 }, hard: { w: 0, l: 0, d: 0 } };
+  return { w: 0, l: 0, d: 0 };
 }
 
 const count = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? Math.floor(x) : 0);
 
 export function loadStats(): Stats {
-  const stats = emptyStats();
   try {
-    const raw = read('stats');
-    if (!raw) return stats;
-    const data = JSON.parse(raw) as Partial<Record<Difficulty, Partial<Record3>>>;
-    for (const d of DIFFICULTIES) {
-      const r = data?.[d];
-      if (r && typeof r === 'object') stats[d] = { w: count(r.w), l: count(r.l), d: count(r.d) };
-    }
+    const data = JSON.parse(read(STATS_KEY) ?? 'null') as Partial<Stats> | null;
+    if (data && typeof data === 'object') return { w: count(data.w), l: count(data.l), d: count(data.d) };
   } catch {
     /* corrupt: start fresh */
   }
-  return stats;
+  return emptyStats();
 }
 
 export function saveStats(stats: Stats): void {
-  write('stats', JSON.stringify(stats));
+  write(STATS_KEY, JSON.stringify(stats));
 }
 
-export function recordResult(stats: Stats, difficulty: Difficulty, outcome: Outcome): Stats {
-  const r = { ...stats[difficulty] };
-  if (outcome === 'win') r.w++;
-  else if (outcome === 'loss') r.l++;
-  else r.d++;
-  return { ...stats, [difficulty]: r };
+export function recordResult(stats: Stats, outcome: Outcome): Stats {
+  const key = outcome === 'win' ? 'w' : outcome === 'loss' ? 'l' : 'd';
+  return { ...stats, [key]: stats[key] + 1 };
 }

@@ -6,21 +6,15 @@ Based on the "Immortal Snail Chess!" short (ViperKing) and the immortal snail me
 
 ## How to play
 
-- You are **White** against the computer. All normal chess rules apply (castling, en passant, check, checkmate, stalemate, threefold repetition, 50-move rule, insufficient material). Your pawns always promote to a queen.
-- **The snail** starts on a8. It is not a chess piece: it can't be captured or blocked, and pieces of both colours can move onto or through its square. The one exception is your king.
-- After the computer replies, the snail crawls **one square** toward your king every few turns:
+1. **You are White. Checkmate the computer to win.**
+2. **Every 2 turns, the snail crawls 1 square toward your king. Nothing can stop it.**
+3. **If the snail touches your king, you lose.**
 
-  | Difficulty | Snail crawls | Computer |
-  | --- | --- | --- |
-  | Easy | every 3rd turn | looks 1 move ahead, plays loosely |
-  | Normal (default) | every 2nd turn | looks 2 moves ahead |
-  | Hard | every turn | looks 3 moves ahead |
+To move, tap a piece, then tap a dot. The rules card shows on your first visit; the **Rules** button brings it back.
 
-- **You lose if** the snail lands on your king, if the computer checkmates you, or if every legal move you have left would step your king onto the snail (it "cornered" you). Your king can never move onto the snail.
-- **You win** by checkmating the computer before the snail gets you.
-- The dotted green outline shows the square the snail will crawl to next. Your king's square glows red when the snail is right next to it.
+The fine print, for the curious: all normal chess rules apply (castling, en passant, stalemate and the usual draws), and your pawns always promote to a queen. The snail starts on a8 and crawls after the computer's reply on turns 2, 4, 6, … It can't be captured or blocked, and any piece except your king may share its square. Your king can never step (or castle) onto the snail, so in the rare case where every move you have left would do that, the snail has trapped your king and you lose. If the computer's reply ends the game, the snail stays put. The dotted green outline shows where the snail crawls next, and your king's square glows red when the snail is right next to it.
 
-The game saves after every move and resumes when you come back. Wins, losses and draws are tracked per difficulty.
+The game saves after every move and resumes when you come back. It keeps one record of wins, losses and draws.
 
 ## Run it
 
@@ -35,7 +29,7 @@ npm run dev        # open the printed localhost URL
 | `npm run build` | Typecheck + production build to `dist/` |
 | `npm test` | Unit tests (snail maths, game rules, AI) |
 | `npm run typecheck` | TypeScript only |
-| `npm run bench` | Times the AI at every difficulty on sample middlegames |
+| `npm run bench` | Times the AI on sample middlegames |
 
 ## How it's built
 
@@ -45,11 +39,11 @@ React 18 + TypeScript (strict) + Vite 5 + Tailwind 3, with `chess.js` (pinned to
 | --- | --- |
 | `src/game/snail.ts` | Snail maths: distance, the next step (minimise Chebyshev distance, then squared Euclidean, then a fixed direction order), the crawl schedule |
 | `src/game/engine.ts` | Immutable game state and transitions (`applyWhiteMove`, `applyBlackMove`, `advanceSnail`), result detection, save/restore |
-| `src/game/difficulty.ts` | Snail speed and AI settings per difficulty |
+| `src/game/settings.ts` | The fixed settings: how often the snail crawls, how the computer plays |
 | `src/chess/fast.ts` | Typed adapter over chess.js internals for fast legal-move generation (why chess.js is pinned) |
 | `src/ai/search.ts` | Negamax alpha-beta: material + piece-square tables, MVV-LVA/promotion/check ordering, mate-distance scoring, capture quiescence |
 | `src/ai/ai.worker.ts`, `src/ai/client.ts` | The AI runs in a module Web Worker. Replies are tagged with game id + position, so stale replies are ignored. Each move takes at least 400 ms so it doesn't feel instant |
-| `src/ui/*`, `src/App.tsx` | Board (square buttons with aria-labels, arrow-key navigation), the SVG snail, status, controls, game-over card |
+| `src/ui/*`, `src/App.tsx` | Board (square buttons with aria-labels, arrow-key navigation), the SVG snail, status, controls, rules card, game-over card |
 | `src/storage.ts` | `localStorage` (keys prefixed `immortal-snail:`), wrapped in try/catch. The game works without it |
 
-A turn is one White move plus Black's reply. The snail crawls after the reply on turns where `turn % every === 0`. If the reply ends the game, the snail stays put. The AI ignores the snail. Hard (depth 3) typically answers in tens of milliseconds; run `npm run bench` to measure it on your machine.
+A turn is one White move plus Black's reply. The snail crawls after the reply on turns where `turn % 2 === 0`. If the reply ends the game, the snail stays put. The computer looks one move ahead and picks randomly among moves within 80 centipawns of its best, so it plays loosely and varies from game to game. It ignores the snail and answers in a few milliseconds (each move still takes at least 400 ms).

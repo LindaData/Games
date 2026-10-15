@@ -81,23 +81,12 @@ describe('nextSnailStep', () => {
 });
 
 describe('snail schedule', () => {
-  it('Easy crawls every 3rd turn', () => {
-    const turns = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((t) => snailMovesAfterTurn(t, 'easy'));
-    expect(turns).toEqual([3, 6, 9]);
-  });
-
-  it('Normal crawls every 2nd turn', () => {
-    const turns = [1, 2, 3, 4, 5, 6].filter((t) => snailMovesAfterTurn(t, 'normal'));
-    expect(turns).toEqual([2, 4, 6]);
-  });
-
-  it('Hard crawls every turn', () => {
-    expect([1, 2, 3, 4].every((t) => snailMovesAfterTurn(t, 'hard'))).toBe(true);
+  it('crawls after turns 2, 4, 6 (not 1, 3, 5)', () => {
+    const turns = [1, 2, 3, 4, 5, 6, 7, 8].filter((t) => snailMovesAfterTurn(t));
+    expect(turns).toEqual([2, 4, 6, 8]);
   });
 
   it('counts turns until the next crawl (1 = after this turn)', () => {
-    expect([1, 2, 3, 4].map((t) => turnsUntilSnailMoves(t, 'easy'))).toEqual([3, 2, 1, 3]);
-    expect([1, 2, 3, 4].map((t) => turnsUntilSnailMoves(t, 'normal'))).toEqual([2, 1, 2, 1]);
-    expect([1, 2, 3].map((t) => turnsUntilSnailMoves(t, 'hard'))).toEqual([1, 1, 1]);
+    expect([1, 2, 3, 4, 5, 6].map((t) => turnsUntilSnailMoves(t))).toEqual([2, 1, 2, 1, 2, 1]);
   });
 });

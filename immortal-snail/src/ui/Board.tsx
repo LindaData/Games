@@ -42,7 +42,9 @@ export function Board({ game, gameId, selected, targets, crawling, onSquare, chi
   const whiteKing = kingSquare(game, 'w');
   const inCheck = checkedKing(game);
   const preview = over ? null : snailPreview(game);
-  const danger = !over && chebyshev(game.snail, whiteKing) === 1;
+  // Like the status warning, the red tint lasts until the snail's last glide ends: during that glide
+  // the game is already over and the snail is on (or, if it trapped the king, next to) the king.
+  const danger = (!over || crawling) && chebyshev(game.snail, whiteKing) <= 1;
   const snailGotYou = game.result?.cause === 'snail';
   const kingFallen = snailGotYou && !crawling;
   const snailShared = pieceAt(game, game.snail) !== null;

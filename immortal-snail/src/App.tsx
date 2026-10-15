@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Square } from 'chess.js';
 import { requestAiMove } from './ai/client';
 import { chooseMove } from './ai/search';
-import { DEFAULT_DIFFICULTY, DIFFICULTY, type Difficulty } from './game/difficulty';
 import {
   advanceSnail,
   applyBlackMove,
@@ -11,16 +10,15 @@ import {
   focalKing,
   newGame,
   pieceAt,
-  restoreGame,
-  serializeGame,
   whiteMoves,
   type GameState,
 } from './game/engine';
+import { AI_SETTINGS } from './game/settings';
 import { rankOf } from './game/snail';
-import { loadDifficulty, loadSavedGame, loadStats, recordResult, saveDifficulty, saveGame, saveStats } from './storage';
+import { loadGame, loadRulesSeen, loadStats, recordResult, saveGame, saveRulesSeen, saveStats } from './storage';
 import { Board } from './ui/Board';
-import { DifficultyPicker, NewGameButton } from './ui/Controls';
-import { GameOverCard, HowToPlay, StatsLine } from './ui/Panels';
+import { NewGameButton } from './ui/Controls';
+import { GameOverCard, RulesCard, StatsLine } from './ui/Panels';
 import { Snail } from './ui/Snail';
 import { Status } from './ui/Status';
 
@@ -43,29 +41,23 @@ interface AppState {
   game: GameState;
 }
 
-function init() {
-  const preferred = loadDifficulty() ?? DEFAULT_DIFFICULTY;
-  const restored = restoreGame(loadSavedGame());
-  return { preferred, game: restored ?? newGame(preferred) };
-}
-
 export default function App() {
-  const [initial] = useState(init);
-  const [app, setApp] = useState<AppState>({ gameId: 1, game: initial.game });
-  const [nextDifficulty, setNextDifficulty] = useState<Difficulty>(initial.preferred);
+  const [app, setApp] = useState<AppState>(() => ({ gameId: 1, game: loadGame() }));
   const [selected, setSelected] = useState<Square | null>(null);
   const [crawling, setCrawling] = useState(false);
   const [overlayHidden, setOverlayHidden] = useState(false);
   const [stats, setStats] = useState(loadStats);
+  /** The rules card: opens by itself on the first visit ('first'), then only from the Rules button. */
+  const [rules, setRules] = useState<'first' | 'open' | 'closed'>(() => (loadRulesSeen() ? 'closed' : 'first'));
   // A game restored already finished was counted when it ended.
-  const countedRef = useRef<number | null>(initial.game.phase === 'over' ? 1 : null);
+  const countedRef = useRef<number | null>(app.game.phase === 'over' ? 1 : null);
 
   const { game, gameId } = app;
   const inProgress = game.phase !== 'over' && game.history.length > 0;
 
   // ---- persistence ----------------------------------------------------------
   useEffect(() => {
-    saveGame(serializeGame(game));
+    saveGame(game);
   }, [game]);
 
   useEffect(() => {
@@ -76,27 +68,16 @@ export default function App() {
     if (game.phase !== 'over' || !game.result || countedRef.current === gameId) return;
     countedRef.current = gameId;
     const outcome = game.result.outcome;
-    const difficulty = game.difficulty;
-    setStats((s) => recordResult(s, difficulty, outcome));
+    setStats((s) => recordResult(s, outcome));
   }, [game, gameId]);
 
   // ---- the computer's turn --------------------------------------------------
   useEffect(() => {
     if (game.phase !== 'black') return;
     let cancelled = false;
-    const settings = DIFFICULTY[game.difficulty];
     const tag = { gameId, fen: game.fen, ply: game.history.length };
-    requestAiMove(
-      {
-        fen: game.fen,
-        depth: settings.aiDepth,
-        randomWindow: settings.randomWindow,
-        quiescence: settings.quiescence,
-        seed: Math.floor(Math.random() * 2 ** 31),
-      },
-      tag,
-    )
-      .catch(() => ({ tag, result: chooseMove({ fen: game.fen, depth: 1 }) }))
+    requestAiMove({ fen: game.fen, ...AI_SETTINGS, seed: Math.floor(Math.random() * 2 ** 31) }, tag)
+      .catch(() => ({ tag, result: chooseMove({ fen: game.fen, ...AI_SETTINGS }) }))
       .then(({ tag: replyTag, result }) => {
         if (cancelled) return;
         setApp((cur) => {
@@ -140,19 +121,17 @@ export default function App() {
   }, [crawling]);
 
   // ---- actions --------------------------------------------------------------
-  const startNewGame = useCallback((difficulty: Difficulty) => {
-    setApp((cur) => ({ gameId: cur.gameId + 1, game: newGame(difficulty) }));
+  const startNewGame = useCallback(() => {
+    setApp((cur) => ({ gameId: cur.gameId + 1, game: newGame() }));
     setSelected(null);
     setCrawling(false);
     setOverlayHidden(false);
   }, []);
 
-  const onDifficulty = (d: Difficulty) => {
-    setNextDifficulty(d);
-    saveDifficulty(d);
-    // Before the first move a change restarts right away; mid-game it waits for the next game.
-    if (game.history.length === 0 && d !== game.difficulty) startNewGame(d);
-  };
+  const closeRules = useCallback(() => {
+    setRules('closed');
+    saveRulesSeen();
+  }, []);
 
   const canMove = game.phase === 'white' && !crawling;
   const targets = useMemo(
@@ -175,7 +154,8 @@ export default function App() {
     else setSelected(null);
   };
 
-  const showOverlay = game.phase === 'over' && !crawling && !overlayHidden;
+  // While the rules card is open the game-over card waits (it would take focus from the rules).
+  const showOverlay = game.phase === 'over' && !crawling && !overlayHidden && rules === 'closed';
 
   return (
     <main className="mx-auto w-full max-w-[1040px] px-4 pb-10 pt-4 sm:pt-6">
@@ -183,12 +163,12 @@ export default function App() {
         <Snail className="h-12 w-12 shrink-0" />
         <div className="min-w-0">
           <h1 className="text-xl font-extrabold leading-tight sm:text-2xl">Immortal Snail Chess</h1>
-          <p className="text-sm text-muted">Checkmate the computer before the snail touches your king.</p>
+          <p className="text-sm text-muted">Checkmate the computer before the snail reaches your king.</p>
         </div>
       </header>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-6">
-        <section className="mx-auto flex w-full max-w-[560px] shrink-0 flex-col gap-3 lg:mx-0" aria-label="Game">
+        <section className="relative mx-auto flex w-full max-w-[560px] shrink-0 flex-col gap-3 lg:mx-0" aria-label="Game">
           <Board
             game={game}
             gameId={gameId}
@@ -202,25 +182,22 @@ export default function App() {
                 game={game}
                 stats={stats}
                 placement={rankOf(focalKing(game)) < 4 ? 'top' : 'bottom'}
-                onPlayAgain={() => startNewGame(nextDifficulty)}
+                onPlayAgain={startNewGame}
                 onHide={() => setOverlayHidden(true)}
               />
             )}
           </Board>
           <Status game={game} crawling={crawling} />
+          {rules !== 'closed' && <RulesCard buttonLabel={rules === 'first' ? 'Play' : 'Close'} onClose={closeRules} />}
         </section>
 
         <aside className="mx-auto flex w-full max-w-[560px] flex-col gap-3 lg:mx-0 lg:max-w-[400px] lg:flex-1">
-          <div className="panel flex flex-col gap-3 p-3">
-            <NewGameButton inProgress={inProgress} onNewGame={() => startNewGame(nextDifficulty)} />
-            <DifficultyPicker
-              value={nextDifficulty}
-              current={game.difficulty}
-              inProgress={inProgress || game.phase === 'over'}
-              onChange={onDifficulty}
-            />
+          <div className="panel flex gap-3 p-3">
+            <NewGameButton inProgress={inProgress} onNewGame={startNewGame} />
+            <button type="button" className="btn btn-secondary shrink-0" aria-haspopup="dialog" onClick={() => setRules('open')}>
+              Rules
+            </button>
           </div>
-          <HowToPlay />
           <StatsLine stats={stats} />
         </aside>
       </div>
