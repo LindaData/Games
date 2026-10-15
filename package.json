@@ -15,6 +15,10 @@
     "snail:install": "npm --prefix immortal-snail install",
     "snail:dev": "npm --prefix immortal-snail run dev",
     "snail:build": "npm --prefix immortal-snail run build",
-    "snail:test": "npm --prefix immortal-snail test"
+    "snail:test": "npm --prefix immortal-snail test",
+    "snail:desktop:install": "npm --prefix immortal-snail/desktop install",
+    "snail:desktop": "npm --prefix immortal-snail/desktop run build:web && npm --prefix immortal-snail/desktop start",
+    "snail:desktop:dist": "npm --prefix immortal-snail/desktop run dist",
+    "snail:desktop:test": "npm --prefix immortal-snail/desktop test"
   }
 }

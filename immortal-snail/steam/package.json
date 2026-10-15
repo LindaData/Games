@@ -1,0 +1,21 @@
+{
+  "name": "immortal-snail-steam-kit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Steam store art, screenshots and upload tooling for Immortal Snail Chess",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "art": "node art/make-art.mjs",
+    "screenshots": "node art/screenshots.mjs",
+    "verify": "node art/verify-art.mjs",
+    "steam:art": "npm run art",
+    "steam:screenshots": "npm run screenshots",
+    "upload:dry-run": "bash upload.sh --dry-run"
+  },
+  "devDependencies": {
+    "playwright-core": "1.56.1"
+  }
+}

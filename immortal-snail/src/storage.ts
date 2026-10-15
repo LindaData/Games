@@ -1,14 +1,15 @@
 /**
  * localStorage helpers. Every access is wrapped in try/catch: storage can be missing, blocked
  * or full (private windows, embedded viewers), and the game must work fine without it.
- * Keys left by the old version with difficulty levels (`game`, `stats`, `difficulty`) are ignored.
+ * Keys from older versions (`game:v2`, `stats:v2`, `rules-seen`, …) are ignored.
  */
-import { newGame, restoreGame, serializeGame, type GameState, type Outcome } from './game/engine';
+import { restoreGame, serializeGame, type GameState, type Outcome } from './game/engine';
+import { MODES, isMode, type Mode } from './game/settings';
 
 const PREFIX = 'immortal-snail:';
-const GAME_KEY = 'game:v2';
-const STATS_KEY = 'stats:v2';
-const RULES_KEY = 'rules-seen';
+const GAME_KEY = 'game:v3';
+const MODE_KEY = 'mode';
+const statsKey = (mode: Mode) => `stats:${mode}`;
 
 function read(key: string): string | null {
   try {
@@ -28,27 +29,28 @@ function write(key: string, value: string): void {
 
 // ---- saved game -------------------------------------------------------------
 
-/** The saved game, or a fresh game when there is none or it is corrupt. */
-export function loadGame(): GameState {
-  return restoreGame(read(GAME_KEY)) ?? newGame();
+/** The saved game, or null when there is none or it is corrupt or from an older version. */
+export function loadGame(): GameState | null {
+  return restoreGame(read(GAME_KEY));
 }
 
 export function saveGame(game: GameState): void {
   write(GAME_KEY, serializeGame(game));
 }
 
-// ---- rules card -------------------------------------------------------------
+// ---- last mode --------------------------------------------------------------
 
-/** Has the player closed the rules card before? (It opens by itself only on the first visit.) */
-export function loadRulesSeen(): boolean {
-  return read(RULES_KEY) === '1';
+/** The mode played last (Ghost on a first visit). */
+export function loadMode(): Mode {
+  const mode = read(MODE_KEY);
+  return isMode(mode) ? mode : 'ghost';
 }
 
-export function saveRulesSeen(): void {
-  write(RULES_KEY, '1');
+export function saveMode(mode: Mode): void {
+  write(MODE_KEY, mode);
 }
 
-// ---- stats ------------------------------------------------------------------
+// ---- stats (one record per mode) ---------------------------------------------
 
 export interface Stats {
   w: number;
@@ -56,15 +58,17 @@ export interface Stats {
   d: number;
 }
 
+export type AllStats = Record<Mode, Stats>;
+
 export function emptyStats(): Stats {
   return { w: 0, l: 0, d: 0 };
 }
 
 const count = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? Math.floor(x) : 0);
 
-export function loadStats(): Stats {
+export function loadStats(mode: Mode): Stats {
   try {
-    const data = JSON.parse(read(STATS_KEY) ?? 'null') as Partial<Stats> | null;
+    const data = JSON.parse(read(statsKey(mode)) ?? 'null') as Partial<Stats> | null;
     if (data && typeof data === 'object') return { w: count(data.w), l: count(data.l), d: count(data.d) };
   } catch {
     /* corrupt: start fresh */
@@ -72,8 +76,12 @@ export function loadStats(): Stats {
   return emptyStats();
 }
 
-export function saveStats(stats: Stats): void {
-  write(STATS_KEY, JSON.stringify(stats));
+export function loadAllStats(): AllStats {
+  return Object.fromEntries(MODES.map((m) => [m, loadStats(m)])) as AllStats;
+}
+
+export function saveStats(mode: Mode, stats: Stats): void {
+  write(statsKey(mode), JSON.stringify(stats));
 }
 
 export function recordResult(stats: Stats, outcome: Outcome): Stats {

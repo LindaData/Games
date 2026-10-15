@@ -7,10 +7,18 @@
  * - Optional capture-only quiescence search at the leaves.
  * - Optionally scores every root move exactly and picks randomly within a centipawn window.
  *
- * It only ever plays moves chess.js generated as legal, and it ignores the snail entirely.
+ * The snails (when given) shape it with a few cheap rules: a king never steps onto the enemy
+ * snail (the game forbids it, so neither side does it anywhere in the tree, and a king with no
+ * other move is lost); a snail near a king costs that king's side; and when the snails crawl
+ * right after this move, a snail landing on a king decides the game and, in Hungry games, a
+ * piece on a snail's next square is as good as gone.
+ *
+ * It only ever plays moves chess.js generated as legal, minus king steps onto the enemy snail.
  */
-import type { PieceSymbol, Square } from 'chess.js';
-import { BITS, FastBoard, sqFrom0x88, type RawMove } from '../chess/fast';
+import type { Color, PieceSymbol, Square } from 'chess.js';
+import { BITS, FastBoard, sqFrom0x88, sqTo0x88, type RawMove } from '../chess/fast';
+import type { Mode } from '../game/settings';
+import { nextSnailSteps, otherColor, type Snails } from '../game/snail';
 
 export interface AiRequest {
   fen: string;
@@ -20,6 +28,11 @@ export interface AiRequest {
   quiescence?: boolean;
   /** Seed for tie-shuffling and the random pick (randomWindow). */
   seed?: number;
+  /** Both snails, keyed by owner (`w` hunts the black king, `b` the white king). Omit for plain chess. */
+  snails?: Snails;
+  mode?: Mode;
+  /** Turns until the snails crawl: 1 = right after this move. */
+  crawlIn?: number;
 }
 
 export interface AiResult {
@@ -119,6 +132,15 @@ const KING_END = [
 /** Total non-pawn material (both sides) at or below which kings use the endgame table. */
 const ENDGAME_MATERIAL = 1300;
 
+/** What an enemy snail 0, 1, 2 or 3 king-steps from a king costs that king's side. */
+const SNAIL_NEAR = [300, 300, 120, 40];
+/** A snail landing on a king in the crawl right after this move: the game is decided. */
+const SNAIL_STRIKE = 20000;
+
+/** King-step distance between two 0x88 squares. */
+const dist0x88 = (a: number, b: number) => Math.max(Math.abs((a & 15) - (b & 15)), Math.abs((a >> 4) - (b >> 4)));
+const snailNear = (d: number) => (d < SNAIL_NEAR.length ? SNAIL_NEAR[d] : 0);
+
 /** Small, fast seeded RNG (mulberry32). */
 export function createRng(seed: number): () => number {
   let a = seed >>> 0;
@@ -144,11 +166,26 @@ const now = () => (typeof performance !== 'undefined' ? performance.now() : Date
 
 class Searcher {
   nodes = 0;
+  /** Snail squares (0x88) by owner, or null for plain chess. */
+  private readonly snails: Record<Color, number> | null;
 
   constructor(
     private readonly fb: FastBoard,
     private readonly quiescence: boolean,
-  ) {}
+    snails: Snails | undefined,
+  ) {
+    this.snails = snails ? { w: sqTo0x88(snails.w), b: sqTo0x88(snails.b) } : null;
+  }
+
+  /** Is this the side to move's king stepping onto the enemy snail? */
+  private ontoSnail(m: RawMove): boolean {
+    return this.snails !== null && m.piece === 'k' && m.to === this.snails[otherColor(m.color)];
+  }
+
+  /** Legal moves for the side to move, minus king steps onto the enemy snail. */
+  legalMoves(raw: RawMove[] = this.fb.moves()): RawMove[] {
+    return this.snails ? raw.filter((m) => !this.ontoSnail(m)) : raw;
+  }
 
   /** Static evaluation from the side to move's point of view. */
   evaluate(): number {
@@ -176,6 +213,10 @@ class Searcher {
     }
     const kt = nonPawn <= ENDGAME_MATERIAL ? KING_END : KING_MID;
     score += kt[wk] - kt[bk ^ 56];
+    if (this.snails) {
+      score += snailNear(dist0x88(this.snails.w, this.fb.kingSquare('b')));
+      score -= snailNear(dist0x88(this.snails.b, this.fb.kingSquare('w')));
+    }
     return this.fb.turn === 'w' ? score : -score;
   }
 
@@ -203,8 +244,10 @@ class Searcher {
     const fb = this.fb;
     const inCheck = fb.inCheck();
     if (depth <= 0 && !inCheck) return this.quiescence ? this.quiesce(alpha, beta, 0) : this.evaluate();
-    const moves = fb.moves();
-    if (moves.length === 0) return inCheck ? -(MATE - ply) : 0;
+    const raw = fb.moves();
+    const moves = this.legalMoves(raw);
+    // No moves: checkmate, stalemate, or a king trapped by the enemy snail (a loss).
+    if (moves.length === 0) return inCheck || raw.length > 0 ? -(MATE - ply) : 0;
     if (depth <= 0) return this.evaluate(); // in check at the horizon, but not mated
     let best = -INF;
     for (const m of this.order(moves, depth >= 2)) {
@@ -229,7 +272,7 @@ class Searcher {
     const us = fb.turn;
     const captures = fb
       .pseudoMoves()
-      .filter((m) => m.captured || m.promotion === 'q')
+      .filter((m) => (m.captured || m.promotion === 'q') && !this.ontoSnail(m))
       .map((m) => ({ m, s: (m.captured ? VALUE[m.captured] * 10 - VALUE[m.piece] : 0) + (m.promotion ? 8000 : 0) }))
       .sort((a, b) => b.s - a.s);
     for (const { m } of captures) {
@@ -256,28 +299,57 @@ function toResult(m: RawMove, score: number, depth: number, nodes: number, start
   return r;
 }
 
+/**
+ * The crawl right after a root move, from the mover's point of view: a snail landing on a king
+ * decides the game, and in Hungry games a piece on an enemy snail's next square gets eaten.
+ * Call it with the root move made.
+ */
+function crawlTerm(fb: FastBoard, snails: Snails, mode: Mode | undefined): number {
+  const them = fb.turn; // the root move is made: the opponent is to move
+  const us = otherColor(them);
+  const kings = { w: sqFrom0x88(fb.kingSquare('w')), b: sqFrom0x88(fb.kingSquare('b')) };
+  const next = nextSnailSteps(snails, kings);
+  let term = 0;
+  if (next[us] === kings[them]) term += SNAIL_STRIKE;
+  if (next[them] === kings[us]) term -= SNAIL_STRIKE;
+  if (mode === 'hungry') {
+    const meal = (owner: Color) => {
+      const p = fb.board[sqTo0x88(next[owner])];
+      return p && p.color !== owner && p.type !== 'k' ? VALUE[p.type] : 0;
+    };
+    term += meal(us) - meal(them);
+  }
+  return term;
+}
+
 /** Pick a move for the side to move in `req.fen`. Throws if there are no legal moves. */
 export function chooseMove(req: AiRequest): AiResult {
   const start = now();
   const fb = new FastBoard(req.fen);
-  const legal = fb.moves();
+  const searcher = new Searcher(fb, req.quiescence ?? false, req.snails);
+  const legal = searcher.legalMoves();
   if (legal.length === 0) throw new Error('No legal moves');
   if (legal.length === 1) return toResult(legal[0], 0, 0, 1, start);
 
   const depth = Math.max(1, Math.floor(req.depth));
   const rng = createRng(req.seed ?? 0x5eed);
-  const searcher = new Searcher(fb, req.quiescence ?? false);
+  const crawlNext = req.snails && req.crawlIn === 1 ? req.snails : null;
   // Shuffle before the (stable) ordering sort so equally good moves vary from game to game.
   const ordered = searcher.order(shuffle(legal, rng), true);
 
+  /** A root move's score. The crawl term is added outside the search, so it needs a full window. */
+  const scoreRoot = (m: RawMove, alpha: number): number => {
+    fb.make(m);
+    let s = -searcher.negamax(depth - 1, -INF, crawlNext ? INF : -alpha, 1);
+    // No crawl if the move ends the game (mate or stalemate).
+    if (crawlNext && fb.moves().length > 0) s += crawlTerm(fb, crawlNext, req.mode);
+    fb.undo();
+    return s;
+  };
+
   if ((req.randomWindow ?? 0) > 0) {
     // Exact score for every root move, then a random pick among the near-best.
-    const scored = ordered.map((m) => {
-      fb.make(m);
-      const s = -searcher.negamax(depth - 1, -INF, INF, 1);
-      fb.undo();
-      return { m, s };
-    });
+    const scored = ordered.map((m) => ({ m, s: scoreRoot(m, -INF) }));
     const best = Math.max(...scored.map((x) => x.s));
     const pool = scored.filter((x) => x.s >= best - (req.randomWindow ?? 0));
     const pick = pool[Math.floor(rng() * pool.length)];
@@ -287,9 +359,7 @@ export function chooseMove(req: AiRequest): AiResult {
   let alpha = -INF;
   let bestMove = ordered[0];
   for (const m of ordered) {
-    fb.make(m);
-    const s = -searcher.negamax(depth - 1, -INF, -alpha, 1);
-    fb.undo();
+    const s = scoreRoot(m, alpha);
     if (s > alpha) {
       alpha = s;
       bestMove = m;

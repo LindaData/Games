@@ -1,6 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyWhiteMove, newGame, parseUci, whiteMoves, type GameState } from '../src/game/engine';
-import { emptyStats, loadGame, loadRulesSeen, loadStats, recordResult, saveGame, saveRulesSeen, saveStats } from '../src/storage';
+import { applyWhiteMove, newGame, parseUci, startSacrifice, whiteMoves } from '../src/game/engine';
+import {
+  emptyStats,
+  loadAllStats,
+  loadGame,
+  loadMode,
+  loadStats,
+  recordResult,
+  saveGame,
+  saveMode,
+  saveStats,
+} from '../src/storage';
 
 /** A Map-backed stand-in for window.localStorage. */
 function fakeStorage() {
@@ -24,68 +34,80 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const isFresh = (s: GameState) => s.history.length === 0 && s.turn === 1 && s.snail === 'a8' && s.phase === 'white';
-
-describe('rules-seen flag', () => {
-  it('is false on the first visit and remembered once the card is closed', () => {
-    expect(loadRulesSeen()).toBe(false);
-    saveRulesSeen();
-    expect(store.data.get('immortal-snail:rules-seen')).toBe('1');
-    expect(loadRulesSeen()).toBe(true);
+const blockStorage = () =>
+  vi.stubGlobal('window', {
+    get localStorage(): Storage {
+      throw new Error('blocked');
+    },
   });
 
-  it('works (as "not seen") when storage is blocked', () => {
-    vi.stubGlobal('window', {
-      get localStorage(): Storage {
-        throw new Error('blocked');
-      },
-    });
-    expect(() => saveRulesSeen()).not.toThrow();
-    expect(loadRulesSeen()).toBe(false);
+describe('saved game', () => {
+  it('round-trips through storage under the v3 key, in every mode', () => {
+    const games = [
+      applyWhiteMove(newGame('ghost'), parseUci('e2e4')),
+      applyWhiteMove(newGame('hungry'), parseUci('d2d4')),
+      applyWhiteMove(startSacrifice(newGame('sacrifice'), 'g1'), parseUci('e2e4')),
+      newGame('sacrifice'), // still picking a piece
+    ];
+    for (const s of games) {
+      saveGame(s);
+      expect([...store.data.keys()]).toEqual(['immortal-snail:game:v3']);
+      const restored = loadGame();
+      expect({ ...restored! }).toEqual({ ...s });
+      expect(whiteMoves(restored!)).toEqual(whiteMoves(s));
+    }
+  });
+
+  it('is null (the start screen opens) with no save, a corrupt save, or only an older version’s save', () => {
+    expect(loadGame()).toBeNull();
+    store.data.set('immortal-snail:game:v3', '{not json');
+    expect(loadGame()).toBeNull();
+    store.data.clear();
+    store.data.set('immortal-snail:game:v2', JSON.stringify({ v: 2, moves: ['e2e4'], snail: 'a8', turn: 1 }));
+    expect(loadGame()).toBeNull();
+  });
+
+  it('works (as no save) when storage is blocked', () => {
+    blockStorage();
+    expect(() => saveGame(newGame('ghost'))).not.toThrow();
+    expect(loadGame()).toBeNull();
   });
 });
 
-describe('saved game', () => {
-  it('round-trips through storage under the new key', () => {
-    let s = newGame();
-    s = applyWhiteMove(s, parseUci('e2e4'));
-    saveGame(s);
-    expect([...store.data.keys()]).toEqual(['immortal-snail:game:v2']);
-    const restored = loadGame();
-    expect({ ...restored }).toEqual({ ...s });
-    expect(whiteMoves(restored)).toEqual(whiteMoves(s));
-  });
-
-  it('starts a fresh game when there is no save, a corrupt save, or only an old-version save', () => {
-    expect(isFresh(loadGame())).toBe(true);
-    store.data.set('immortal-snail:game:v2', '{not json');
-    expect(isFresh(loadGame())).toBe(true);
-    store.data.set('immortal-snail:game:v2', JSON.stringify({ v: 2, moves: ['e2e5'], snail: 'a8', turn: 1 }));
-    expect(isFresh(loadGame())).toBe(true);
-    store.data.clear();
-    store.data.set('immortal-snail:game', JSON.stringify({ v: 1, difficulty: 'hard', moves: ['e2e4'], snail: 'a8', turn: 1 }));
-    expect(isFresh(loadGame())).toBe(true);
+describe('last mode', () => {
+  it('defaults to Ghost and remembers the mode picked', () => {
+    expect(loadMode()).toBe('ghost');
+    saveMode('hungry');
+    expect(store.data.get('immortal-snail:mode')).toBe('hungry');
+    expect(loadMode()).toBe('hungry');
+    store.data.set('immortal-snail:mode', 'turbo');
+    expect(loadMode()).toBe('ghost');
+    blockStorage();
+    expect(() => saveMode('sacrifice')).not.toThrow();
+    expect(loadMode()).toBe('ghost');
   });
 });
 
 describe('record', () => {
-  it('counts wins, losses and draws in one record', () => {
+  it('keeps one record of wins, losses and draws per mode', () => {
     let st = emptyStats();
     st = recordResult(st, 'win');
     st = recordResult(st, 'loss');
     st = recordResult(st, 'loss');
     st = recordResult(st, 'draw');
     expect(st).toEqual({ w: 1, l: 2, d: 1 });
-    saveStats(st);
-    expect(loadStats()).toEqual({ w: 1, l: 2, d: 1 });
+    saveStats('hungry', st);
+    expect(store.data.get('immortal-snail:stats:hungry')).toBe(JSON.stringify(st));
+    expect(loadStats('hungry')).toEqual({ w: 1, l: 2, d: 1 });
+    expect(loadAllStats()).toEqual({ ghost: emptyStats(), hungry: { w: 1, l: 2, d: 1 }, sacrifice: emptyStats() });
   });
 
-  it('ignores corrupt data and the old per-difficulty record', () => {
-    store.data.set('immortal-snail:stats', JSON.stringify({ easy: { w: 3, l: 0, d: 0 } }));
-    expect(loadStats()).toEqual({ w: 0, l: 0, d: 0 });
-    store.data.set('immortal-snail:stats:v2', '{oops');
-    expect(loadStats()).toEqual({ w: 0, l: 0, d: 0 });
-    store.data.set('immortal-snail:stats:v2', JSON.stringify({ w: -1, l: 'x', d: 2.7 }));
-    expect(loadStats()).toEqual({ w: 0, l: 0, d: 2 });
+  it('ignores corrupt data and the old single record', () => {
+    store.data.set('immortal-snail:stats:v2', JSON.stringify({ w: 3, l: 0, d: 0 }));
+    expect(loadAllStats()).toEqual({ ghost: emptyStats(), hungry: emptyStats(), sacrifice: emptyStats() });
+    store.data.set('immortal-snail:stats:ghost', '{oops');
+    expect(loadStats('ghost')).toEqual({ w: 0, l: 0, d: 0 });
+    store.data.set('immortal-snail:stats:ghost', JSON.stringify({ w: -1, l: 'x', d: 2.7 }));
+    expect(loadStats('ghost')).toEqual({ w: 0, l: 0, d: 2 });
   });
 });

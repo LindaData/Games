@@ -28,9 +28,13 @@
   --last: rgba(255, 214, 79, 0.5);
   --selected: rgba(110, 180, 80, 0.6);
   --hint: rgba(34, 62, 24, 0.38);
-  --slime: #5f9f2e;
-  --slime-fill: rgba(130, 190, 70, 0.16);
+  --good: #2f7d1f;
+  /* Your snail (green) and theirs (bronze): next-step outlines and king tints. */
+  --snail-w: #1f6b12;
+  --snail-w-fill: rgba(120, 200, 70, 0.22);
+  --snail-b: #7f3a0c;
   --danger-tint: rgba(220, 50, 40, 0.42);
+  --chance-tint: rgba(70, 190, 50, 0.5);
 
   --piece-w-fill: #fbf6ea;
   --piece-w-stroke: #2b241b;
@@ -69,8 +73,9 @@
     --last: rgba(255, 210, 70, 0.42);
     --selected: rgba(110, 190, 80, 0.55);
     --hint: rgba(28, 50, 18, 0.45);
-    --slime: #8fd14f;
-    --slime-fill: rgba(140, 210, 80, 0.16);
+    --good: #8fd14f;
+    --snail-w: #1c5a10;
+    --snail-b: #6e300a;
   }
 }
 :root[data-theme='dark'] {
@@ -97,8 +102,9 @@
   --last: rgba(255, 210, 70, 0.42);
   --selected: rgba(110, 190, 80, 0.55);
   --hint: rgba(28, 50, 18, 0.45);
-  --slime: #8fd14f;
-  --slime-fill: rgba(140, 210, 80, 0.16);
+  --good: #8fd14f;
+  --snail-w: #1c5a10;
+  --snail-b: #6e300a;
 }
 
 html {
@@ -148,11 +154,16 @@ button {
 .btn:active {
   transform: translateY(1px);
 }
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
 .btn-primary {
   background: var(--accent);
   color: var(--accent-text);
 }
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 .btn-warn {
@@ -185,6 +196,9 @@ button {
 }
 .text-danger {
   color: var(--danger);
+}
+.text-good {
+  color: var(--good);
 }
 
 .status {
@@ -287,20 +301,60 @@ button {
     box-shadow: inset 0 0 0 100px rgba(220, 50, 40, 0.22);
   }
 }
+/* Your snail is next to their king. */
+.sq.chance {
+  box-shadow: inset 0 0 0 100px var(--chance-tint);
+  animation: chance 1.2s ease-in-out infinite;
+}
+@keyframes chance {
+  50% {
+    box-shadow: inset 0 0 0 100px rgba(70, 190, 50, 0.25);
+  }
+}
+/* Sacrifice setup: the computer's piece that goes with the one you picked. */
+.sq.given {
+  background-image: linear-gradient(rgba(200, 120, 50, 0.45), rgba(200, 120, 50, 0.45));
+}
 .sq:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: -3px;
   z-index: 4;
 }
-.sq.slime::after {
-  content: '';
+/* Where each snail crawls next, in its colour (theirs drawn inside yours when both pick one square).
+   An outline only: no fill, so it never looks like the selected square's green. */
+.next {
   position: absolute;
   inset: 7%;
-  border: 3px dotted var(--slime);
+  border: 3px dotted;
   border-radius: 34%;
-  background: var(--slime-fill);
+  box-shadow: 0 0 0 1.5px rgba(255, 250, 235, 0.55), inset 0 0 0 1.5px rgba(255, 250, 235, 0.55);
   pointer-events: none;
   z-index: 2;
+}
+.next-w {
+  border-color: var(--snail-w);
+}
+.next-b {
+  border-color: var(--snail-b);
+}
+/* The legend's sample: a square with your snail's next-step outline. */
+.legend-next {
+  position: relative;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  background: var(--sq-light);
+}
+.legend-next::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 2.5px dotted var(--snail-w);
+  border-radius: 34%;
+}
+.next-b.inner {
+  inset: 20%;
 }
 .coord {
   position: absolute;
@@ -329,7 +383,7 @@ button {
   position: absolute;
   pointer-events: none;
   border-radius: 50%;
-  /* Above the snail token (3) so a move onto the snail's square still shows its dot; below the overlay (5). */
+  /* Above the snail tokens (3) so a move onto a snail's square still shows its dot; below the overlay (5). */
   z-index: 4;
 }
 .hint.dot {
@@ -337,7 +391,7 @@ button {
   height: 28%;
   background: var(--hint);
 }
-/* A move onto the snail: lift the dot off the bronze shell with a light halo. */
+/* A move onto a snail: lift the dot off its shell with a light halo. */
 .hint.dot.on-snail {
   background: rgba(34, 62, 24, 0.72);
   box-shadow: 0 0 0 clamp(2px, 0.6vw, 3px) rgba(255, 250, 240, 0.92);
@@ -383,12 +437,16 @@ button {
   fill: var(--piece-b-eye) !important;
   stroke: none !important;
 }
-/* The king the snail touched: knocked over. */
+/* A king a snail touched: knocked over. */
 .piece-svg.fallen {
   transform: translateY(16%) rotate(90deg) scale(0.9);
 }
+/* Sacrifice setup: the two pieces about to leave the board. */
+.piece-svg.leaving {
+  opacity: 0.35;
+}
 
-/* ---------- the snail ---------- */
+/* ---------- the snails ---------- */
 .snail-token {
   position: absolute;
   left: 0;
@@ -407,8 +465,16 @@ button {
 .snail-token.alone .snail-inner {
   transform: scale(0.92);
 }
-.snail-token.shared .snail-inner {
+/* Sharing a square (with a piece or the other snail): small, yours bottom right, theirs bottom left. */
+.snail-token.shared.snail-w .snail-inner {
   transform: translate(26%, 26%) scale(0.52);
+}
+.snail-token.shared.snail-b .snail-inner {
+  transform: translate(-26%, 26%) scale(0.52);
+}
+/* Sacrifice setup: where the snails will start. */
+.snail-token.preview {
+  opacity: 0.9;
 }
 .snail-token.victory .snail-inner {
   transform: translate(-4%, -20%) scale(0.64);
@@ -421,31 +487,133 @@ button {
   width: 100%;
   height: 100%;
 }
+/* Both snails facing each other (header, dialogs). */
+.snail-pair {
+  display: inline-flex;
+  align-items: flex-end;
+}
+.snail-pair .snail-svg {
+  height: 100%;
+  width: auto;
+  aspect-ratio: 1 / 1;
+}
+.snail-pair .snail-svg + .snail-svg {
+  margin-left: -24%;
+}
 
-/* ---------- rules card ---------- */
-/* The backdrop dims the whole page; the card sits over the board (it may run past the board's bottom edge). */
-.rules-backdrop {
+/* ---------- a Hungry snail's chomp ---------- */
+/* The eaten piece stays put while the snail glides in, then shakes and vanishes. */
+.chomp {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12.5%;
+  height: 12.5%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+.chomp .piece-svg {
+  animation: chomp-piece 1.1s ease-in both;
+}
+@keyframes chomp-piece {
+  0%,
+  55% {
+    transform: none;
+    opacity: 1;
+  }
+  62% {
+    transform: rotate(-12deg) scale(0.9);
+  }
+  70% {
+    transform: rotate(10deg) scale(0.75);
+    opacity: 0.9;
+  }
+  100% {
+    transform: rotate(0) scale(0.1);
+    opacity: 0;
+  }
+}
+.chomp-word {
+  /* Centred over the square; kept inside the board (which clips) on its edges, see below. */
+  --chomp-x: -50%;
+  position: absolute;
+  top: -22%;
+  left: 50%;
+  transform: translate(var(--chomp-x), 0);
+  padding: 1px 5px;
+  border-radius: 8px;
+  font-size: clamp(9px, 2.4vw, 13px);
+  font-weight: 800;
+  white-space: nowrap;
+  color: #fff;
+  z-index: 6;
+  animation: chomp-word 1.1s ease-out both;
+}
+.chomp-word.chomp-w {
+  background: #2f7d1f;
+}
+.chomp-word.chomp-b {
+  background: #9a4a14;
+}
+.chomp.edge-top .chomp-word {
+  top: auto;
+  bottom: -22%;
+}
+.chomp.edge-left .chomp-word {
+  --chomp-x: 0%;
+  left: 3%;
+  transform-origin: left center;
+}
+.chomp.edge-right .chomp-word {
+  --chomp-x: -100%;
+  left: 97%;
+  transform-origin: right center;
+}
+@keyframes chomp-word {
+  0%,
+  50% {
+    opacity: 0;
+    transform: translate(var(--chomp-x), 30%) scale(0.6);
+  }
+  62% {
+    opacity: 1;
+    transform: translate(var(--chomp-x), 0) scale(1.1);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(var(--chomp-x), -10%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--chomp-x), -30%) scale(1);
+  }
+}
+
+/* ---------- dialogs (start screen, rules) ---------- */
+/* Dims the whole page; the card scrolls with it when it is taller than the screen. */
+.modal {
   position: fixed;
   inset: 0;
   z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 16px 12px;
+  overflow-y: auto;
   background: rgba(24, 16, 6, 0.45);
   animation: fade-in 0.25s ease both;
 }
-.rules-wrap {
-  position: absolute;
-  top: 10px;
-  left: 0;
-  right: 0;
-  z-index: 30;
-  display: flex;
-  justify-content: center;
-  padding: 0 8px;
-  pointer-events: none;
+.modal:focus,
+.modal-card:focus {
+  outline: none;
 }
-.rules-card {
-  pointer-events: auto;
+.modal-card {
   width: 100%;
   max-width: 520px;
+  margin: auto 0;
   padding: 18px 16px 16px;
   border-radius: 18px;
   background: var(--panel);
@@ -453,6 +621,93 @@ button {
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
   animation: fade-in 0.3s ease both;
 }
+.close-btn {
+  align-self: flex-start;
+  width: 44px;
+  height: 44px;
+  margin: -8px -6px 0 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+.close-btn:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.mode-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 76px;
+  padding: 10px 14px 10px 10px;
+  border-radius: 14px;
+  border: 2px solid var(--line);
+  background: var(--panel-2);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+.mode-card:hover {
+  border-color: var(--accent);
+}
+.mode-card:active {
+  transform: translateY(1px);
+}
+.mode-art {
+  position: relative;
+  flex-shrink: 0;
+  width: 64px;
+  height: 56px;
+}
+.mode-art .piece-svg,
+.mode-art .snail-svg {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+}
+.mode-art .art-piece {
+  left: 12px;
+  top: 2px;
+}
+.mode-art .art-snail {
+  left: 18px;
+  top: 16px;
+}
+/* Ghost: the snail slides right over the piece. */
+.art-ghost .art-snail {
+  opacity: 0.85;
+}
+/* Hungry: the snail takes a bite out of the piece in front of it. */
+.art-hungry .art-piece {
+  left: 26px;
+  -webkit-mask-image: radial-gradient(circle at 18% 58%, transparent 26%, #000 27%);
+  mask-image: radial-gradient(circle at 18% 58%, transparent 26%, #000 27%);
+}
+.art-hungry .art-snail {
+  left: -2px;
+}
+/* Sacrifice: your piece makes way for your snail. */
+.art-sacrifice .art-piece {
+  left: -4px;
+  opacity: 0.4;
+}
+.art-sacrifice .art-snail {
+  left: 26px;
+}
+.art-arrow {
+  position: absolute;
+  left: 25px;
+  top: 0;
+  font-weight: 800;
+  color: var(--muted);
+}
+
 .rules-list {
   counter-reset: rule;
   margin: 16px 0 0;
@@ -486,17 +741,50 @@ button {
   color: var(--accent-text);
   font-weight: 800;
 }
+/* The mode's own rule. */
+.rules-list li.mode-rule {
+  margin-left: -8px;
+  margin-right: -8px;
+  padding: 8px 10px 8px 48px;
+  border-radius: 12px;
+  background: var(--snail-w-fill);
+  border: 1px solid var(--good);
+}
+.rules-list li.mode-rule::before {
+  left: 8px;
+  top: 6px;
+  background: var(--good);
+  color: #fff;
+}
+.rules-compact {
+  margin-top: 12px;
+}
+.rules-compact li {
+  padding-left: 34px;
+  font-size: 0.9375rem;
+}
+.rules-compact li + li {
+  margin-top: 8px;
+}
+.rules-compact li::before {
+  width: 24px;
+  height: 24px;
+  font-size: 0.875rem;
+}
 
 @media (min-width: 640px) {
-  .rules-wrap {
-    top: 44px;
-    padding: 0 16px;
+  .modal {
+    padding: 44px 16px;
   }
-  .rules-card {
+  .modal-card {
     padding: 22px 24px 20px;
+    margin: 0;
   }
   .rules-list li {
     font-size: 1.0625rem;
+  }
+  .rules-compact li {
+    font-size: 1rem;
   }
 }
 
@@ -521,6 +809,10 @@ button {
 }
 .overlay.card-bottom {
   align-items: flex-end;
+}
+/* Both snails struck: both knocked-over kings (ranks 1 and 8) stay visible. */
+.overlay.card-middle {
+  align-items: center;
 }
 .result-card {
   width: 100%;
@@ -552,10 +844,13 @@ button {
     transition: none !important;
   }
   .overlay,
-  .rules-backdrop,
-  .rules-card,
+  .modal,
+  .modal-card,
   .mood,
-  .sq.danger {
+  .sq.danger,
+  .sq.chance,
+  .chomp .piece-svg,
+  .chomp-word {
     animation: none !important;
   }
 }

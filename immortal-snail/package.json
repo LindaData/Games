@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Immortal Snail Chess — normal chess against the computer, while an unkillable snail crawls toward your king.",
+  "description": "Immortal Snail Chess — normal chess against the computer, with two unkillable snails crawling toward the kings.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

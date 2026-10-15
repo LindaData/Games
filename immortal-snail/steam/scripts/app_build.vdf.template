@@ -1,0 +1,17 @@
+// SteamPipe app build script for Immortal Snail Chess.
+// upload.sh / upload.ps1 fill in the placeholders and write the result to steam/output/.
+// Relative paths are relative to that output folder.
+"AppBuild"
+{
+	"AppID" "{{APP_ID}}"
+	"Desc" "{{BUILD_DESC}}"
+	"ContentRoot" "../content/"
+	"BuildOutput" "logs/"
+	"Preview" "{{PREVIEW}}"
+	"SetLive" "{{SET_LIVE}}"
+	"Depots"
+	{
+		"{{DEPOT_WIN}}" "depot_build_{{DEPOT_WIN}}.vdf"
+		"{{DEPOT_LINUX}}" "depot_build_{{DEPOT_LINUX}}.vdf"
+	}
+}

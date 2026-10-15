@@ -1,0 +1,13 @@
+// Windows (x64) depot: everything in steam/content/windows/ goes to the root of the install
+// folder. Launch option in Steamworks: ImmortalSnailChess.exe
+"DepotBuild"
+{
+	"DepotID" "{{DEPOT_WIN}}"
+	"FileMapping"
+	{
+		"LocalPath" "windows/*"
+		"DepotPath" "."
+		"Recursive" "1"
+	}
+	"FileExclusion" "*.pdb"
+}

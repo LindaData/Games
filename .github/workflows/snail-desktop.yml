@@ -1,0 +1,108 @@
+# Builds the Immortal Snail Chess desktop app (Electron) for Windows, Linux and macOS and
+# uploads the builds as workflow artifacts, ready for immortal-snail/steam/stage-content.sh.
+# Run it from the Actions tab, or push a tag like snail-v1.0.0. No secrets needed; the macOS
+# build is unsigned (ad-hoc), see immortal-snail/steam/README.md.
+name: Snail desktop builds
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'snail-v*'
+    paths:
+      - 'immortal-snail/**'
+      - '.github/workflows/snail-desktop.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: snail-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows
+            builder: --win
+            files: immortal-snail/desktop/release/*.zip
+          - os: ubuntu-latest
+            name: linux
+            builder: --linux
+            files: immortal-snail/desktop/release/*.tar.gz
+          - os: macos-latest
+            name: macos
+            builder: --mac
+            files: immortal-snail/desktop/release/*.zip
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            immortal-snail/package-lock.json
+            immortal-snail/desktop/package-lock.json
+
+      - name: Install the game
+        working-directory: immortal-snail
+        run: npm ci --no-audit --no-fund
+
+      - name: Test the game
+        working-directory: immortal-snail
+        run: npm test
+
+      - name: Install the desktop tooling
+        working-directory: immortal-snail/desktop
+        run: npm ci --no-audit --no-fund
+
+      - name: Test the desktop app
+        working-directory: immortal-snail/desktop
+        run: npm test
+
+      - name: Build the game for the app
+        working-directory: immortal-snail/desktop
+        run: npm run build:web
+
+      - name: Package (${{ matrix.name }})
+        working-directory: immortal-snail/desktop
+        run: npx electron-builder ${{ matrix.builder }} --publish never
+
+      - name: Check the exe (icon, version info)
+        if: matrix.name == 'windows'
+        working-directory: immortal-snail/desktop
+        run: node scripts/check-win-exe.mjs
+
+      - name: Smoke test (play a move, restart, check the save)
+        if: matrix.name == 'linux'
+        working-directory: immortal-snail/desktop
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" node scripts/smoke-test.mjs
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ImmortalSnailChess-${{ matrix.name }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - name: Upload smoke test screenshots
+        if: matrix.name == 'linux' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-screenshots
+          path: immortal-snail/desktop/release/smoke/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,13 +1,22 @@
 /**
- * Pure snail maths. The Immortal Snail is not a chess piece: it is an overlay token with
- * its own square that crawls one king-step at a time toward the white king.
+ * Pure snail maths. The snails are not chess pieces: each is an overlay token with its own
+ * square that crawls one king-step at a time toward the enemy king.
  */
-import type { Square } from 'chess.js';
-import { SNAIL_EVERY } from './settings';
+import type { Color, Square } from 'chess.js';
+import { SNAILS_EVERY } from './settings';
 
-export const SNAIL_START: Square = 'a8';
+/** Both snails, keyed by owner: `w` is yours (it hunts the black king), `b` is theirs (it hunts yours). */
+export interface Snails {
+  readonly w: Square;
+  readonly b: Square;
+}
+
+/** Where the snails start in Ghost and Hungry games: point-symmetric, 7 steps from the enemy king. */
+export const SNAIL_STARTS: Snails = { w: 'h1', b: 'a8' };
 
 const FILES = 'abcdefgh';
+
+export const otherColor = (c: Color): Color => (c === 'w' ? 'b' : 'w');
 
 /** 0 = a-file … 7 = h-file. */
 export function fileOf(sq: Square): number {
@@ -26,6 +35,11 @@ export function toSquare(file: number, rank: number): Square | null {
 
 export function isSquare(x: unknown): x is Square {
   return typeof x === 'string' && /^[a-h][1-8]$/.test(x);
+}
+
+/** The same file on the other side of the board: b1 ↔ b8, e2 ↔ e7. */
+export function mirrorSquare(sq: Square): Square {
+  return toSquare(fileOf(sq), 7 - rankOf(sq))!;
 }
 
 /** King-move distance between two squares. */
@@ -56,7 +70,7 @@ export const DIRECTIONS: readonly (readonly [number, number])[] = [
 ];
 
 /**
- * The square the snail crawls to next: the neighbouring square that minimises Chebyshev
+ * The square a snail crawls to next: the neighbouring square that minimises Chebyshev
  * distance to the target, then squared Euclidean distance, then the fixed direction order.
  * Returns the snail's own square when it is already on the target.
  */
@@ -80,16 +94,21 @@ export function nextSnailStep(snail: Square, target: Square): Square {
   return best;
 }
 
-/** Does the snail crawl after (Black's reply in) this turn? Turn 1 is the first turn. */
-export function snailMovesAfterTurn(turn: number): boolean {
-  return turn % SNAIL_EVERY === 0;
+/** Where both snails crawl next, given both kings. Computed from where they are now. */
+export function nextSnailSteps(snails: Snails, kings: Record<Color, Square>): Snails {
+  return { w: nextSnailStep(snails.w, kings.b), b: nextSnailStep(snails.b, kings.w) };
+}
+
+/** Do the snails crawl after (the computer's reply in) this turn? Turn 1 is the first turn. */
+export function snailsCrawlAfterTurn(turn: number): boolean {
+  return turn % SNAILS_EVERY === 0;
 }
 
 /**
- * How many turns (counting the current one) until the snail crawls:
+ * How many turns (counting the current one) until the snails crawl:
  * 1 = "after this turn", 2 = after the next turn, and so on.
  */
-export function turnsUntilSnailMoves(turn: number): number {
-  const r = turn % SNAIL_EVERY;
-  return r === 0 ? 1 : SNAIL_EVERY - r + 1;
+export function turnsUntilCrawl(turn: number): number {
+  const r = turn % SNAILS_EVERY;
+  return r === 0 ? 1 : SNAILS_EVERY - r + 1;
 }

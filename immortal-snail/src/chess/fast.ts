@@ -42,6 +42,10 @@ export function sqFrom0x88(i: number): Square {
   return `${'abcdefgh'[i & 15]}${8 - (i >> 4)}` as Square;
 }
 
+export function sqTo0x88(sq: Square): number {
+  return (56 - sq.charCodeAt(1)) * 16 + (sq.charCodeAt(0) - 97);
+}
+
 export class FastBoard {
   readonly chess: Chess;
   private readonly c: ChessInternals;

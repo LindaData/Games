@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Square } from 'chess.js';
 import {
-  SNAIL_START,
+  SNAIL_STARTS,
   chebyshev,
   euclid2,
   fileOf,
+  mirrorSquare,
   nextSnailStep,
+  nextSnailSteps,
   rankOf,
-  snailMovesAfterTurn,
+  snailsCrawlAfterTurn,
   toSquare,
-  turnsUntilSnailMoves,
+  turnsUntilCrawl,
 } from '../src/game/snail';
 
 const ALL: Square[] = [];
@@ -23,7 +25,19 @@ describe('snail geometry', () => {
     expect(euclid2('a8', 'e1')).toBe(16 + 49);
     expect(fileOf('h3')).toBe(7);
     expect(rankOf('h3')).toBe(2);
-    expect(SNAIL_START).toBe('a8');
+  });
+
+  it('starts the snails point-symmetric, 7 steps from the king each hunts', () => {
+    expect(SNAIL_STARTS).toEqual({ w: 'h1', b: 'a8' });
+    expect(chebyshev(SNAIL_STARTS.w, 'e8')).toBe(7);
+    expect(chebyshev(SNAIL_STARTS.b, 'e1')).toBe(7);
+  });
+
+  it('mirrors a square to the same file on the other side', () => {
+    expect(mirrorSquare('b1')).toBe('b8');
+    expect(mirrorSquare('e2')).toBe('e7');
+    expect(mirrorSquare('h8')).toBe('h1');
+    for (const sq of ALL) expect(mirrorSquare(mirrorSquare(sq))).toBe(sq);
   });
 });
 
@@ -80,13 +94,28 @@ describe('nextSnailStep', () => {
   });
 });
 
+describe('both snails', () => {
+  it('each heads for the enemy king: yours for the black king, theirs for yours', () => {
+    expect(nextSnailSteps({ w: 'h1', b: 'a8' }, { w: 'e1', b: 'e8' })).toEqual({ w: 'g2', b: 'b7' });
+    expect(nextSnailSteps({ w: 'd4', b: 'd4' }, { w: 'd1', b: 'd8' })).toEqual({ w: 'd5', b: 'd3' });
+  });
+
+  it('never steps onto a rook’s home square while that side can still castle (its king is on e1/e8)', () => {
+    // So a Hungry snail can never eat a rook that still has a castling right.
+    for (const from of ALL) {
+      if (from !== 'e1') expect(['a1', 'h1']).not.toContain(nextSnailStep(from, 'e1'));
+      if (from !== 'e8') expect(['a8', 'h8']).not.toContain(nextSnailStep(from, 'e8'));
+    }
+  });
+});
+
 describe('snail schedule', () => {
-  it('crawls after turns 2, 4, 6 (not 1, 3, 5)', () => {
-    const turns = [1, 2, 3, 4, 5, 6, 7, 8].filter((t) => snailMovesAfterTurn(t));
-    expect(turns).toEqual([2, 4, 6, 8]);
+  it('crawls after turns 3, 6, 9 (not 1, 2, 4, 5, 7, 8)', () => {
+    const turns = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter((t) => snailsCrawlAfterTurn(t));
+    expect(turns).toEqual([3, 6, 9]);
   });
 
   it('counts turns until the next crawl (1 = after this turn)', () => {
-    expect([1, 2, 3, 4, 5, 6].map((t) => turnsUntilSnailMoves(t))).toEqual([2, 1, 2, 1, 2, 1]);
+    expect([1, 2, 3, 4, 5, 6, 7].map((t) => turnsUntilCrawl(t))).toEqual([3, 2, 1, 3, 2, 1, 3]);
   });
 });

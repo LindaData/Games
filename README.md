@@ -5,7 +5,8 @@ Indie game ideas
 
 - [**Dungeon HR**](dungeon-hr/): a browser management game where you run Human (and Inhuman) Resources for a fantasy dungeon. React + TypeScript + Vite.
 - [**Chess Survivor**](chess-survivor/): a roguelike where you are one chess piece trapped inside a real chess game. React + TypeScript + Vite, chess.js rules, custom Web Worker AI.
-- [**Immortal Snail Chess**](immortal-snail/): plain chess against the computer while an unkillable bronze snail crawls toward your king. If it touches you, you lose. React + TypeScript + Vite, chess.js rules, Web Worker AI.
+- [**Immortal Snail Chess**](immortal-snail/): plain chess against the computer with two immortal snails. Your green snail hunts their king, their bronze snail hunts yours, and every 3 turns both crawl one square. A snail that reaches a king wins for its side. Three modes: **Ghost** (snails slide over pieces), **Hungry** (snails eat enemy pieces they crawl onto) and **Sacrifice** (give up one of your pieces; your snail starts in its place). React + TypeScript + Vite, chess.js rules, Web Worker AI.
+  - [Desktop app](immortal-snail/desktop/) (Electron, Windows / Linux / macOS) and a [Steam release kit](immortal-snail/steam/) (store copy, art, screenshots, SteamPipe upload scripts and a step-by-step checklist).
 
 ```bash
 npm install
@@ -20,4 +21,15 @@ npm run chess:install && npm run chess:dev
 cd immortal-snail && npm install && npm run dev
 # or, from the repo root:
 npm run snail:install && npm run snail:dev
+
+# Immortal Snail Chess as a desktop app (Electron):
+cd immortal-snail/desktop && npm install
+npm run build:web && npm start   # build the game into the app and run it
+npm run dist:linux               # or dist:win / dist:mac: builds in immortal-snail/desktop/release/
+# or, from the repo root:
+npm run snail:desktop:install && npm run snail:desktop
+npm run snail:desktop:dist       # a release build for this OS
 ```
+
+Getting Immortal Snail Chess on Steam: follow the checklist in
+[`immortal-snail/steam/README.md`](immortal-snail/steam/README.md).

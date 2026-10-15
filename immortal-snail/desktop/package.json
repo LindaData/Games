@@ -1,0 +1,36 @@
+{
+  "name": "immortal-snail-chess",
+  "productName": "Immortal Snail Chess",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Immortal Snail Chess: chess against the computer, with two immortal snails.",
+  "author": "LindaData",
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/LindaData/Games",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LindaData/Games.git",
+    "directory": "immortal-snail/desktop"
+  },
+  "main": "src/main.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build:web": "node scripts/build-web.mjs",
+    "start": "electron .",
+    "dist": "npm run build:web && electron-builder",
+    "dist:linux": "npm run build:web && electron-builder --linux",
+    "dist:win": "npm run build:web && electron-builder --win",
+    "dist:mac": "npm run build:web && electron-builder --mac",
+    "smoke": "node scripts/smoke-test.mjs",
+    "test": "node --test \"test/*.test.mjs\"",
+    "steam:art": "npm --prefix ../steam run art",
+    "steam:screenshots": "npm --prefix ../steam run screenshots"
+  },
+  "devDependencies": {
+    "electron": "44.7.2",
+    "electron-builder": "26.15.3",
+    "playwright-core": "1.64.1"
+  }
+}
