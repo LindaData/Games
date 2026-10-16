@@ -1,0 +1,11 @@
+{
+  "name": "Snailmate Chess",
+  "shortName": "Snailmate",
+  "url": "https://snailmate-chess.vercel.app",
+  "description": "Chess against the computer, plus two immortal snails. Yours hunts their king. Theirs hunts yours.",
+  "tagline": "Your snail hunts their king.",
+  "colors": {
+    "light": "#dfe9d3",
+    "dark": "#0f2117"
+  }
+}

@@ -15,6 +15,7 @@ const PIECE_ORDER: PieceSymbol[] = ['p', 'n', 'b', 'r', 'q', 'k'];
 export function TitleScreen({
   meta,
   hasRun,
+  runInProgress,
   onContinue,
   onNew,
   onUnlocks,
@@ -22,11 +23,14 @@ export function TitleScreen({
 }: {
   meta: MetaState;
   hasRun: boolean;
+  /** A run that would be lost by starting over: asks for a second click first. */
+  runInProgress: boolean;
   onContinue: () => void;
   onNew: () => void;
   onUnlocks: () => void;
   onHowTo: () => void;
 }) {
+  const [armed, setArmed] = useState(false);
   return (
     <div className="min-h-[88vh] flex flex-col items-center justify-center text-center fade-in">
       <div className="flex items-end gap-2 mb-6 opacity-90">
@@ -48,8 +52,15 @@ export function TitleScreen({
             <Play size={16} /> Continue run
           </button>
         )}
-        <button className={`btn ${hasRun ? '' : 'btn-primary'}`} onClick={onNew}>
-          <RotateCcw size={16} /> New run
+        <button
+          className={`btn ${hasRun ? '' : 'btn-primary'} ${armed ? '!border-red-500 !text-red-200' : ''}`}
+          onClick={() => {
+            if (runInProgress && !armed) setArmed(true);
+            else onNew();
+          }}
+          onBlur={() => setArmed(false)}
+        >
+          <RotateCcw size={16} /> {armed ? 'Abandon current run? Click again' : 'New run'}
         </button>
         <button className="btn" onClick={onUnlocks}>
           <Sparkles size={16} /> Unlocks <span className="text-amber-300 text-xs">({meta.insight} insight)</span>

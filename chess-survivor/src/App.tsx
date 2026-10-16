@@ -53,9 +53,9 @@ export default function App() {
       <TitleScreen
         meta={meta}
         hasRun={!!run}
+        runInProgress={!!run && run.screen !== 'gameover' && run.screen !== 'victory'}
         onContinue={() => setView('run')}
         onNew={() => {
-          if (run && run.screen !== 'gameover' && run.screen !== 'victory' && !confirm('Abandon your current run?')) return;
           if (run && (run.screen === 'gameover' || run.screen === 'victory')) setMeta((m) => applyRunToMeta(m, run));
           setRun(null);
           setView('select');

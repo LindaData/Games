@@ -1,0 +1,63 @@
+# electron-builder config for the Snailmate Chess desktop app (Steam builds).
+# The name also lives in package.json (productName) and src/main.js (APP_ID).
+appId: com.lindadata.snailmatechess
+productName: Snailmate Chess
+copyright: Copyright © 2026 LindaData
+directories:
+  output: release
+  buildResources: build
+files:
+  - package.json
+  - src/**/*
+  - app/**/*
+  - assets/**/*
+asar: true
+npmRebuild: false
+extraFiles:
+  - from: app/THIRD-PARTY-NOTICES.txt
+    to: THIRD-PARTY-NOTICES.txt
+# English only for now: drops ~50 unused Chromium UI locales from every build.
+electronLanguages:
+  - en-US
+artifactName: SnailmateChess-${version}-${os}-${arch}.${ext}
+afterPack: scripts/after-pack.cjs
+# Steam delivers the builds and the updates: never publish anywhere, no auto-update metadata.
+publish: null
+
+win:
+  executableName: SnailmateChess
+  icon: build/icon.ico
+  target:
+    - target: dir
+      arch: [x64]
+    - target: zip
+      arch: [x64]
+  # electron-builder 26 writes the exe icon and version info with resedit (pure JS), so this
+  # works on Linux and macOS hosts too, no Wine needed. Code signing is off: Steam does not
+  # require a signed exe. To sign later, remove this line and set CSC_LINK / CSC_KEY_PASSWORD.
+  # (If an older electron-builder ever needs Wine here, use signAndEditExecutable: false.)
+  signExecutable: false
+
+linux:
+  executableName: snailmate-chess
+  icon: build/icons
+  category: Game
+  synopsis: Chess against the computer, with two immortal snails.
+  target:
+    - target: dir
+      arch: [x64]
+    - target: tar.gz
+      arch: [x64]
+
+mac:
+  icon: build/icon.icns
+  category: public.app-category.board-games
+  target:
+    - target: zip
+      arch: [universal]
+  # Ad-hoc signature only. A Developer ID signed + notarised build needs an Apple Developer
+  # account: set identity to your "Developer ID Application" certificate, hardenedRuntime: true
+  # and the APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID env vars (see steam/README.md).
+  identity: "-"
+  hardenedRuntime: false
+  gatekeeperAssess: false

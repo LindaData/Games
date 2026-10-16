@@ -1,0 +1,4 @@
+node_modules/
+# Build outputs: the web game built for the app, and electron-builder's output.
+app/
+release/

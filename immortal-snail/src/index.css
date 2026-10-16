@@ -1,0 +1,1007 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------- theme ---------- */
+:root {
+  color-scheme: light;
+  --bg: #dfe9d3;
+  --bg-glow: #f1f6e9;
+  --panel: #fffaf0;
+  --panel-2: #f6eedc;
+  --line: #e2d4b6;
+  --text: #2b2318;
+  --muted: #6c604c;
+  --accent: #9a5a22;
+  --accent-hover: #8a4f1c;
+  --accent-text: #fffaf0;
+  --danger: #c0392b;
+  --warn: #d9822b;
+  --focus: #2f7dd1;
+
+  --frame: #6e4524;
+  --frame-edge: #4a2c14;
+  --sq-light: #edd6aa;
+  --sq-dark: #b7845a;
+  --coord-on-light: #8a5b35;
+  --coord-on-dark: #f3e2c2;
+  --last: rgba(255, 214, 79, 0.5);
+  --selected: rgba(110, 180, 80, 0.6);
+  --hint: rgba(34, 62, 24, 0.38);
+  --good: #2f7d1f;
+  /* Your snail (green) and theirs (bronze): next-step outlines and king tints. */
+  --snail-w: #1f6b12;
+  --snail-w-fill: rgba(120, 200, 70, 0.22);
+  --snail-b: #7f3a0c;
+  --danger-tint: rgba(220, 50, 40, 0.42);
+  --chance-tint: rgba(70, 190, 50, 0.5);
+
+  --piece-w-fill: #fbf6ea;
+  --piece-w-stroke: #2b241b;
+  --piece-b-fill: #2c2722;
+  --piece-b-stroke: #0f0d0b;
+  --piece-b-detail: #776b5f;
+  --piece-b-eye: #b0a596;
+
+  --snail-glide: 700ms;
+  --check-glow: radial-gradient(circle, rgba(255, 40, 30, 0.85) 0%, rgba(230, 40, 30, 0.45) 45%, transparent 75%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0f2117;
+    --bg-glow: #1b3a28;
+    --panel: #1b2a20;
+    --panel-2: #213328;
+    --line: #2f4637;
+    --text: #f1e9d6;
+    --muted: #a9b4a3;
+    --accent: #d3964c;
+    --accent-hover: #e2a95f;
+    --accent-text: #1f150b;
+    --danger: #f07060;
+    --warn: #e8a050;
+    --focus: #7ab8ff;
+
+    --frame: #4b2f18;
+    --frame-edge: #2c1a0b;
+    --sq-light: #d8bd90;
+    --sq-dark: #9b6d48;
+    --coord-on-light: #7a4f2c;
+    --coord-on-dark: #f0dcb8;
+    --last: rgba(255, 210, 70, 0.42);
+    --selected: rgba(110, 190, 80, 0.55);
+    --hint: rgba(28, 50, 18, 0.45);
+    --good: #8fd14f;
+    --snail-w: #1c5a10;
+    --snail-b: #6e300a;
+  }
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0f2117;
+  --bg-glow: #1b3a28;
+  --panel: #1b2a20;
+  --panel-2: #213328;
+  --line: #2f4637;
+  --text: #f1e9d6;
+  --muted: #a9b4a3;
+  --accent: #d3964c;
+  --accent-hover: #e2a95f;
+  --accent-text: #1f150b;
+  --danger: #f07060;
+  --warn: #e8a050;
+  --focus: #7ab8ff;
+  --frame: #4b2f18;
+  --frame-edge: #2c1a0b;
+  --sq-light: #d8bd90;
+  --sq-dark: #9b6d48;
+  --coord-on-light: #7a4f2c;
+  --coord-on-dark: #f0dcb8;
+  --last: rgba(255, 210, 70, 0.42);
+  --selected: rgba(110, 190, 80, 0.55);
+  --hint: rgba(28, 50, 18, 0.45);
+  --good: #8fd14f;
+  --snail-w: #1c5a10;
+  --snail-b: #6e300a;
+}
+
+html {
+  background-color: var(--bg);
+  -webkit-text-size-adjust: 100%;
+  /* Taps answer at once and a double tap never zooms (touch-action applies to everything inside). */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  /* No pull-to-refresh or rubber-band bounce: a stray swipe must not reload or shake the game. */
+  overscroll-behavior: none;
+  background-color: var(--bg);
+  background-image: radial-gradient(900px 520px at 50% -8%, var(--bg-glow) 0%, transparent 70%);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+button {
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+  /* A long press on a button or square selects nothing and opens no callout. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+/* Playing with a controller: whatever has focus shows the ring (App sets data-input, and clears it
+   on the next mouse, touch or key press). */
+html[data-input='pad'] :focus {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+html[data-input='pad'] .modal:focus,
+html[data-input='pad'] .modal-card:focus {
+  outline: none;
+}
+
+/* The page, clear of the notch, the rounded corners and the home bar (iPhone home-screen app and
+   landscape; viewport-fit=cover in index.html). */
+.app-shell {
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-bottom: max(40px, calc(16px + env(safe-area-inset-bottom)));
+  padding-left: max(16px, env(safe-area-inset-left));
+}
+@media (min-width: 640px) {
+  .app-shell {
+    padding-top: calc(24px + env(safe-area-inset-top));
+  }
+}
+
+/* ---------- generic UI ---------- */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(30, 40, 20, 0.08);
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.55rem 1rem;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.btn-warn {
+  background: var(--warn);
+  color: #1d1206;
+}
+.btn-secondary {
+  background: var(--panel-2);
+  border-color: var(--line);
+  color: var(--text);
+}
+.btn-secondary:hover {
+  border-color: var(--muted);
+}
+.btn-big {
+  min-height: 52px;
+  font-size: 1.125rem;
+}
+.link-btn {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.text-muted {
+  color: var(--muted);
+}
+.text-danger {
+  color: var(--danger);
+}
+.text-good {
+  color: var(--good);
+}
+
+.status {
+  padding: 10px 14px;
+}
+.mood {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mood-you {
+  background: #4caf50;
+}
+.mood-cpu {
+  background: #8a8378;
+  animation: pulse 1s ease-in-out infinite;
+}
+.mood-snail {
+  background: var(--accent);
+  animation: pulse 0.7s ease-in-out infinite;
+}
+.mood-over {
+  background: var(--accent);
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.stats {
+  padding: 0 4px;
+  line-height: 1.6;
+}
+
+/* ---------- board ---------- */
+.board-frame {
+  width: 100%;
+  padding: 6px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, var(--frame), var(--frame-edge));
+  box-shadow: 0 10px 26px rgba(20, 30, 10, 0.28);
+}
+.board {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  /* No double-tap zoom; a swipe on the board still scrolls the page (body stops the bounce). */
+  touch-action: manipulation;
+}
+/* Phones on their side: the whole board fits on the screen at once. */
+@media (orientation: landscape) and (max-height: 599.98px) {
+  .board-frame {
+    max-width: calc(100vh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-width: calc(100svh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    margin-inline: auto;
+  }
+}
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  width: 100%;
+  height: 100%;
+}
+.sq {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  margin: 0;
+  min-width: 0;
+  min-height: 0;
+  cursor: pointer;
+}
+.sq.light {
+  background-color: var(--sq-light);
+}
+.sq.dark {
+  background-color: var(--sq-dark);
+}
+.sq.last {
+  background-image: linear-gradient(var(--last), var(--last));
+}
+.sq.selected {
+  background-image: linear-gradient(var(--selected), var(--selected));
+}
+.sq.check {
+  background-image: var(--check-glow);
+}
+/* Selecting your king while in check: keep both the check glow and the selection tint. */
+.sq.selected.check {
+  background-image: var(--check-glow), linear-gradient(var(--selected), var(--selected));
+}
+.sq.danger {
+  box-shadow: inset 0 0 0 100px var(--danger-tint);
+  animation: danger 1.2s ease-in-out infinite;
+}
+@keyframes danger {
+  50% {
+    box-shadow: inset 0 0 0 100px rgba(220, 50, 40, 0.22);
+  }
+}
+/* Your snail is next to their king. */
+.sq.chance {
+  box-shadow: inset 0 0 0 100px var(--chance-tint);
+  animation: chance 1.2s ease-in-out infinite;
+}
+@keyframes chance {
+  50% {
+    box-shadow: inset 0 0 0 100px rgba(70, 190, 50, 0.25);
+  }
+}
+/* Sacrifice setup: the computer's piece that goes with the one you picked. */
+.sq.given {
+  background-image: linear-gradient(rgba(200, 120, 50, 0.45), rgba(200, 120, 50, 0.45));
+}
+.sq:focus-visible,
+html[data-input='pad'] .sq:focus {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+  z-index: 4;
+}
+/* Where each snail crawls next, in its colour (theirs drawn inside yours when both pick one square).
+   An outline only: no fill, so it never looks like the selected square's green. */
+.next {
+  position: absolute;
+  inset: 7%;
+  border: 3px dotted;
+  border-radius: 34%;
+  box-shadow: 0 0 0 1.5px rgba(255, 250, 235, 0.55), inset 0 0 0 1.5px rgba(255, 250, 235, 0.55);
+  pointer-events: none;
+  z-index: 2;
+}
+.next-w {
+  border-color: var(--snail-w);
+}
+.next-b {
+  border-color: var(--snail-b);
+}
+/* The legend's sample: a square with your snail's next-step outline. */
+.legend-next {
+  position: relative;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  background: var(--sq-light);
+}
+.legend-next::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 2.5px dotted var(--snail-w);
+  border-radius: 34%;
+}
+.next-b.inner {
+  inset: 20%;
+}
+.coord {
+  position: absolute;
+  font-size: clamp(8px, 2.3vw, 11px);
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0.8;
+  pointer-events: none;
+}
+.coord.rank {
+  top: 3px;
+  left: 3px;
+}
+.coord.file {
+  bottom: 2px;
+  right: 3px;
+}
+.sq.light .coord {
+  color: var(--coord-on-light);
+}
+.sq.dark .coord {
+  color: var(--coord-on-dark);
+}
+
+.hint {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  /* Above the snail tokens (3) so a move onto a snail's square still shows its dot; below the overlay (5). */
+  z-index: 4;
+}
+.hint.dot {
+  width: 28%;
+  height: 28%;
+  background: var(--hint);
+}
+/* A move onto a snail: lift the dot off its shell with a light halo. */
+.hint.dot.on-snail {
+  background: rgba(34, 62, 24, 0.72);
+  box-shadow: 0 0 0 clamp(2px, 0.6vw, 3px) rgba(255, 250, 240, 0.92);
+}
+.hint.ring {
+  inset: 5%;
+  border: clamp(3px, 0.9vw, 5px) solid var(--hint);
+}
+
+/* ---------- pieces ---------- */
+.piece-svg {
+  width: 86%;
+  height: 86%;
+  overflow: visible;
+  filter: drop-shadow(0 2px 1.5px rgba(0, 0, 0, 0.3));
+  position: relative;
+  z-index: 1;
+  transition: transform 0.5s cubic-bezier(0.5, 0, 0.9, 0.5);
+  transform-origin: 50% 50%;
+}
+.piece-body > * {
+  stroke-width: 3.2;
+  stroke-linejoin: round;
+}
+.piece-svg .detail {
+  fill: none !important;
+}
+.piece-w .piece-body > * {
+  fill: var(--piece-w-fill);
+  stroke: var(--piece-w-stroke);
+}
+.piece-w .eye {
+  fill: var(--piece-w-stroke) !important;
+}
+.piece-b .piece-body > * {
+  fill: var(--piece-b-fill);
+  stroke: var(--piece-b-stroke);
+}
+.piece-b .detail {
+  stroke: var(--piece-b-detail) !important;
+}
+.piece-b .eye {
+  fill: var(--piece-b-eye) !important;
+  stroke: none !important;
+}
+/* A king a snail touched: knocked over. */
+.piece-svg.fallen {
+  transform: translateY(16%) rotate(90deg) scale(0.9);
+}
+/* Sacrifice setup: the two pieces about to leave the board. */
+.piece-svg.leaving {
+  opacity: 0.35;
+}
+
+/* ---------- the snails ---------- */
+.snail-token {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12.5%;
+  height: 12.5%;
+  pointer-events: none;
+  z-index: 3;
+  transition: transform var(--snail-glide) cubic-bezier(0.45, 0.05, 0.4, 1);
+}
+.snail-inner {
+  position: absolute;
+  inset: 0;
+  transition: transform var(--snail-glide) ease;
+}
+.snail-token.alone .snail-inner {
+  transform: scale(0.92);
+}
+/* Sharing a square (with a piece or the other snail): small, yours bottom right, theirs bottom left. */
+.snail-token.shared.snail-w .snail-inner {
+  transform: translate(26%, 26%) scale(0.52);
+}
+.snail-token.shared.snail-b .snail-inner {
+  transform: translate(-26%, 26%) scale(0.52);
+}
+/* Sacrifice setup: where the snails will start. */
+.snail-token.preview {
+  opacity: 0.9;
+}
+.snail-token.victory .snail-inner {
+  transform: translate(-4%, -20%) scale(0.64);
+}
+.snail-svg {
+  display: block;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3));
+}
+.snail-inner .snail-svg {
+  width: 100%;
+  height: 100%;
+}
+/* Both snails facing each other (header, dialogs). */
+.snail-pair {
+  display: inline-flex;
+  align-items: flex-end;
+}
+.snail-pair .snail-svg {
+  height: 100%;
+  width: auto;
+  aspect-ratio: 1 / 1;
+}
+.snail-pair .snail-svg + .snail-svg {
+  margin-left: -24%;
+}
+
+/* ---------- a Hungry snail's chomp ---------- */
+/* The eaten piece stays put while the snail glides in, then shakes and vanishes. */
+.chomp {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12.5%;
+  height: 12.5%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+.chomp .piece-svg {
+  animation: chomp-piece 1.1s ease-in both;
+}
+@keyframes chomp-piece {
+  0%,
+  55% {
+    transform: none;
+    opacity: 1;
+  }
+  62% {
+    transform: rotate(-12deg) scale(0.9);
+  }
+  70% {
+    transform: rotate(10deg) scale(0.75);
+    opacity: 0.9;
+  }
+  100% {
+    transform: rotate(0) scale(0.1);
+    opacity: 0;
+  }
+}
+.chomp-word {
+  /* Centred over the square; kept inside the board (which clips) on its edges, see below. */
+  --chomp-x: -50%;
+  position: absolute;
+  top: -22%;
+  left: 50%;
+  transform: translate(var(--chomp-x), 0);
+  padding: 1px 5px;
+  border-radius: 8px;
+  font-size: clamp(9px, 2.4vw, 13px);
+  font-weight: 800;
+  white-space: nowrap;
+  color: #fff;
+  z-index: 6;
+  animation: chomp-word 1.1s ease-out both;
+}
+.chomp-word.chomp-w {
+  background: #2f7d1f;
+}
+.chomp-word.chomp-b {
+  background: #9a4a14;
+}
+.chomp.edge-top .chomp-word {
+  top: auto;
+  bottom: -22%;
+}
+.chomp.edge-left .chomp-word {
+  --chomp-x: 0%;
+  left: 3%;
+  transform-origin: left center;
+}
+.chomp.edge-right .chomp-word {
+  --chomp-x: -100%;
+  left: 97%;
+  transform-origin: right center;
+}
+@keyframes chomp-word {
+  0%,
+  50% {
+    opacity: 0;
+    transform: translate(var(--chomp-x), 30%) scale(0.6);
+  }
+  62% {
+    opacity: 1;
+    transform: translate(var(--chomp-x), 0) scale(1.1);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(var(--chomp-x), -10%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--chomp-x), -30%) scale(1);
+  }
+}
+
+/* ---------- dialogs (start screen, rules) ---------- */
+/* Dims the whole page; the card scrolls with it when it is taller than the screen. */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: max(16px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: rgba(24, 16, 6, 0.45);
+  animation: fade-in 0.25s ease both;
+}
+.modal:focus,
+.modal-card:focus {
+  outline: none;
+}
+.modal-card {
+  width: 100%;
+  max-width: 520px;
+  margin: auto 0;
+  padding: 18px 16px 16px;
+  border-radius: 18px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
+  animation: fade-in 0.3s ease both;
+}
+.close-btn {
+  align-self: flex-start;
+  width: 44px;
+  height: 44px;
+  margin: -8px -6px 0 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+.close-btn:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+.close-btn.small {
+  flex-shrink: 0;
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+/* ---------- share, toast, Add to Home Screen ---------- */
+.btn-share {
+  gap: 6px;
+}
+.share-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+/* New game, Rules and Share share one row, packed a little tighter so the armed New game ("Sure?
+   Tap again") still fits on one line and the row never changes height: on phones (where Share is
+   just the icon) and in the 400px side column of big screens (Steam Deck, desktop). */
+.controls {
+  gap: 8px;
+}
+.controls .btn {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+@media (max-width: 639.98px) {
+  .controls .btn-share[aria-label] {
+    width: 46px;
+    padding: 0;
+  }
+  .btn-share[aria-label] .share-icon {
+    width: 22px;
+    height: 22px;
+  }
+}
+@media (max-width: 379.98px) {
+  .controls .btn-warn {
+    font-size: 0.9375rem;
+  }
+}
+.btn-small {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.9375rem;
+}
+.toast-slot {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: max(20px, calc(12px + env(safe-area-inset-bottom)));
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+}
+.toast {
+  max-width: 100%;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--panel);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  animation: fade-in 0.2s ease both;
+}
+/* Under the header, so it is on screen in Safari (browser bars and all) without scrolling. */
+.install-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 2px 2px 12px;
+}
+.inline-share {
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  vertical-align: -0.25em;
+  color: var(--focus);
+}
+
+.mode-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 76px;
+  padding: 10px 14px 10px 10px;
+  border-radius: 14px;
+  border: 2px solid var(--line);
+  background: var(--panel-2);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+.mode-card:hover {
+  border-color: var(--accent);
+}
+.mode-card:active {
+  transform: translateY(1px);
+}
+.mode-art {
+  position: relative;
+  flex-shrink: 0;
+  width: 64px;
+  height: 56px;
+}
+.mode-art .piece-svg,
+.mode-art .snail-svg {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+}
+.mode-art .art-piece {
+  left: 12px;
+  top: 2px;
+}
+.mode-art .art-snail {
+  left: 18px;
+  top: 16px;
+}
+/* Ghost: the snail slides right over the piece. */
+.art-ghost .art-snail {
+  opacity: 0.85;
+}
+/* Hungry: the snail takes a bite out of the piece in front of it. */
+.art-hungry .art-piece {
+  left: 26px;
+  -webkit-mask-image: radial-gradient(circle at 18% 58%, transparent 26%, #000 27%);
+  mask-image: radial-gradient(circle at 18% 58%, transparent 26%, #000 27%);
+}
+.art-hungry .art-snail {
+  left: -2px;
+}
+/* Sacrifice: your piece makes way for your snail. */
+.art-sacrifice .art-piece {
+  left: -4px;
+  opacity: 0.4;
+}
+.art-sacrifice .art-snail {
+  left: 26px;
+}
+.art-arrow {
+  position: absolute;
+  left: 25px;
+  top: 0;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.rules-list {
+  counter-reset: rule;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.rules-list li {
+  counter-increment: rule;
+  position: relative;
+  padding-left: 40px;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+.rules-list li + li {
+  margin-top: 12px;
+}
+.rules-list li::before {
+  content: counter(rule);
+  position: absolute;
+  left: 0;
+  top: -2px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 800;
+}
+/* The mode's own rule. */
+.rules-list li.mode-rule {
+  margin-left: -8px;
+  margin-right: -8px;
+  padding: 8px 10px 8px 48px;
+  border-radius: 12px;
+  background: var(--snail-w-fill);
+  border: 1px solid var(--good);
+}
+.rules-list li.mode-rule::before {
+  left: 8px;
+  top: 6px;
+  background: var(--good);
+  color: #fff;
+}
+.rules-compact {
+  margin-top: 12px;
+}
+.rules-compact li {
+  padding-left: 34px;
+  font-size: 0.9375rem;
+}
+.rules-compact li + li {
+  margin-top: 8px;
+}
+.rules-compact li::before {
+  width: 24px;
+  height: 24px;
+  font-size: 0.875rem;
+}
+
+@media (min-width: 640px) {
+  .modal {
+    padding: max(44px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(44px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
+  }
+  .modal-card {
+    padding: 22px 24px 20px;
+    margin: 0;
+  }
+  .rules-list li {
+    font-size: 1.0625rem;
+  }
+  .rules-compact li {
+    font-size: 1rem;
+  }
+}
+
+/* ---------- game over ---------- */
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6%;
+  background: rgba(24, 16, 6, 0.3);
+  animation: fade-in 0.35s ease both;
+}
+.overlay.late {
+  animation-delay: 0.65s;
+}
+/* Keep the deciding king (yours, or the computer's when you mate it) visible behind the card. */
+.overlay.card-top {
+  align-items: flex-start;
+}
+.overlay.card-bottom {
+  align-items: flex-end;
+}
+/* Both snails struck: both knocked-over kings (ranks 1 and 8) stay visible. */
+.overlay.card-middle {
+  align-items: center;
+}
+.result-card {
+  width: 100%;
+  max-width: 300px;
+  padding: 14px 16px 10px;
+  border-radius: 16px;
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+}
+.result-card.outcome-win h2 {
+  color: #3f8f2a;
+}
+.result-card.outcome-loss h2 {
+  color: var(--danger);
+}
+.result-card .record {
+  font-size: 0.8125rem;
+}
+.result-card .view-board {
+  min-height: 44px;
+  font-size: 0.8125rem;
+}
+/* 320px phones: "Share" alone, so the button stays on one line next to View board. */
+@media (max-width: 359.98px) {
+  .share-result-word {
+    display: none;
+  }
+}
+/* Big screens (Steam Deck 1280x800, desktops): no text under 12px, Valve's recommended minimum. */
+@media (min-width: 1024px) {
+  .coord {
+    font-size: 13px;
+  }
+  .result-card .record,
+  .result-card .view-board {
+    font-size: 0.875rem;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snail-token,
+  .snail-inner,
+  .piece-svg {
+    transition: none !important;
+  }
+  .overlay,
+  .modal,
+  .modal-card,
+  .toast,
+  .mood,
+  .sq.danger,
+  .sq.chance,
+  .chomp .piece-svg,
+  .chomp-word {
+    animation: none !important;
+  }
+}

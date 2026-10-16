@@ -1,0 +1,23 @@
+{
+  "name": "snailmate-chess-steam-kit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Steam store art, screenshots, trailer and upload tooling for Snailmate Chess",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "art": "node art/make-art.mjs",
+    "screenshots": "node art/screenshots.mjs",
+    "verify": "node art/verify-art.mjs",
+    "trailer": "node trailer/make-trailer.mjs",
+    "steam:art": "npm run art",
+    "steam:screenshots": "npm run screenshots",
+    "steam:trailer": "npm run trailer",
+    "upload:dry-run": "bash upload.sh --dry-run"
+  },
+  "devDependencies": {
+    "playwright-core": "1.56.1"
+  }
+}

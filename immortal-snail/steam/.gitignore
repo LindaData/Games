@@ -1,0 +1,7 @@
+node_modules/
+# Staged builds and generated SteamPipe scripts/logs (see README.md).
+content/
+output/
+# The game build the screenshot and trailer scripts serve, and the trailer's recorded frames.
+.screenshots-web/
+.trailer-work/
