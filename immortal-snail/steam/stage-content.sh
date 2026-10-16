@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
 # Put the desktop builds where the Steam depot scripts expect them:
-#   steam/content/windows/   ImmortalSnailChess.exe and its files
-#   steam/content/linux/     immortal-snail-chess (launcher), immortal-snail-chess.bin, ...
+#   steam/content/windows/   SnailmateChess.exe and its files
+#   steam/content/linux/     snailmate-chess (launcher), snailmate-chess.bin, ...
 #
 #   ./stage-content.sh
 #       from a local build: ../desktop/release/win-unpacked and linux-unpacked
-#   ./stage-content.sh ~/Downloads/ImmortalSnailChess-windows.zip ~/Downloads/ImmortalSnailChess-linux.zip
+#   ./stage-content.sh ~/Downloads/SnailmateChess-windows.zip ~/Downloads/SnailmateChess-linux.zip
 #       from CI downloads: the GitHub artifact zips, or the .zip / .tar.gz inside them
 #
 # Run it on Linux, macOS or WSL: unpacking the Linux .tar.gz there keeps its executable bits.
 set -euo pipefail
+
+# The game's executables (see ../desktop/electron-builder.yml and upload.sh).
+WIN_EXE=SnailmateChess.exe
+LINUX_EXE=snailmate-chess
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 content="$here/content"
@@ -47,8 +51,8 @@ unpack() { # unpack <archive> <into>
 stage_archive() {
   local archive="$1" platform marker dir nested
   case "$(basename "$archive" | tr '[:upper:]' '[:lower:]')" in
-    *win*) platform=windows marker=ImmortalSnailChess.exe ;;
-    *linux*) platform=linux marker=immortal-snail-chess.bin ;;
+    *win*) platform=windows marker=$WIN_EXE ;;
+    *linux*) platform=linux marker=$LINUX_EXE.bin ;;
     *)
       echo "stage-content: can't tell whether $archive is the Windows or the Linux build (name it *win* or *linux*)" >&2
       exit 1
@@ -74,11 +78,11 @@ stage_archive() {
 
 echo "Staging builds into $content ..."
 if [ "$#" -eq 0 ]; then
-  [ -f "$release/win-unpacked/ImmortalSnailChess.exe" ] || {
+  [ -f "$release/win-unpacked/$WIN_EXE" ] || {
     echo "stage-content: no Windows build in $release/win-unpacked (cd ../desktop && npm run dist:win)" >&2
     exit 1
   }
-  [ -f "$release/linux-unpacked/immortal-snail-chess.bin" ] || {
+  [ -f "$release/linux-unpacked/$LINUX_EXE.bin" ] || {
     echo "stage-content: no Linux build in $release/linux-unpacked (cd ../desktop && npm run dist:linux)" >&2
     exit 1
   }
@@ -88,8 +92,8 @@ else
   for archive in "$@"; do stage_archive "$archive"; done
 fi
 
-if [ -f "$content/linux/immortal-snail-chess" ] && [ ! -x "$content/linux/immortal-snail-chess" ]; then
+if [ -f "$content/linux/$LINUX_EXE" ] && [ ! -x "$content/linux/$LINUX_EXE" ]; then
   echo "warning: the Linux launcher lost its executable bit; fixing" >&2
-  chmod +x "$content/linux/immortal-snail-chess" "$content/linux/immortal-snail-chess.bin" "$content/linux/chrome_crashpad_handler" 2>/dev/null || true
+  chmod +x "$content/linux/$LINUX_EXE" "$content/linux/$LINUX_EXE.bin" "$content/linux/chrome_crashpad_handler" 2>/dev/null || true
 fi
 echo "Done. Next: ./upload.sh --dry-run"

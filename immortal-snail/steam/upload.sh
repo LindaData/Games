@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Upload Immortal Snail Chess to Steam with SteamCMD (Linux, macOS or WSL).
+# Upload Snailmate Chess to Steam with SteamCMD (Linux, macOS or WSL).
 #
 #   STEAM_USER=you APP_ID=1234560 DEPOT_WIN=1234561 DEPOT_LINUX=1234562 ./upload.sh
 #
@@ -10,10 +10,13 @@
 #            DEPOT_LINUX  the Linux depot ID
 # Optional:  SET_LIVE     a beta branch to put the build on after uploading, e.g. "beta"
 #                         (Steam never allows setting the default branch from here)
-#            BUILD_DESC   a note for the build list (default: "Immortal Snail Chess <version> <date>")
+#            BUILD_DESC   a note for the build list (default: "Snailmate Chess <version> <date>")
 #            STEAMCMD     path to steamcmd (default: steamcmd on PATH, or ~/steamcmd/steamcmd.sh)
 # Flags:     --dry-run    check everything and print the generated scripts; upload nothing
 #            --preview    SteamPipe preview build: steamcmd checks the files, uploads nothing
+#            --ci         no prompts (for GitHub Actions): SteamCMD must log in with the saved
+#                         login in ~/Steam/config/config.vdf, and the upload only counts as done
+#                         when SteamCMD reports a BuildID
 #
 # Before running: put the builds in steam/content/ (./stage-content.sh does it).
 set -euo pipefail
@@ -25,12 +28,19 @@ templates="$here/scripts"
 content="$here/content"
 out="$here/output"
 
+# The game's executables (see ../desktop/electron-builder.yml): the Windows exe, and on Linux the
+# launcher script plus the real Electron binary next to it.
+WIN_EXE=SnailmateChess.exe
+LINUX_EXE=snailmate-chess
+
 dry_run=0
 preview=0
+ci=0
 for arg in "$@"; do
   case "$arg" in
     --dry-run) dry_run=1 ;;
     --preview) preview=1 ;;
+    --ci) ci=1 ;;
     -h | --help)
       awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"
       exit 0
@@ -69,12 +79,12 @@ fi
 echo "Checking content in $content ..."
 win="$content/windows"
 lin="$content/linux"
-[ -f "$win/ImmortalSnailChess.exe" ] || fail "missing $win/ImmortalSnailChess.exe (run ./stage-content.sh)"
+[ -f "$win/$WIN_EXE" ] || fail "missing $win/$WIN_EXE (run ./stage-content.sh)"
 [ -f "$win/resources/app.asar" ] || fail "missing $win/resources/app.asar"
-[ -f "$lin/immortal-snail-chess" ] || fail "missing $lin/immortal-snail-chess (run ./stage-content.sh)"
-[ -f "$lin/immortal-snail-chess.bin" ] || fail "missing $lin/immortal-snail-chess.bin"
+[ -f "$lin/$LINUX_EXE" ] || fail "missing $lin/$LINUX_EXE (run ./stage-content.sh)"
+[ -f "$lin/$LINUX_EXE.bin" ] || fail "missing $lin/$LINUX_EXE.bin"
 [ -f "$lin/resources/app.asar" ] || fail "missing $lin/resources/app.asar"
-for exe in immortal-snail-chess immortal-snail-chess.bin chrome_crashpad_handler; do
+for exe in "$LINUX_EXE" "$LINUX_EXE.bin" chrome_crashpad_handler; do
   if [ -f "$lin/$exe" ] && [ ! -x "$lin/$exe" ]; then
     fail "$lin/$exe is not executable: unpack the Linux build on Linux/macOS (tar keeps the permissions) or chmod +x it"
   fi
@@ -87,7 +97,8 @@ fi
 
 # ---- build scripts ------------------------------------------------------------------------------
 version="$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$here/../desktop/package.json" | head -n 1)"
-BUILD_DESC="${BUILD_DESC:-Immortal Snail Chess ${version:-?} $(date -u +%Y-%m-%d)}"
+product="$(sed -n 's/^ *"productName": *"\([^"]*\)".*/\1/p' "$here/../desktop/package.json" | head -n 1)"
+BUILD_DESC="${BUILD_DESC:-${product:-Snailmate Chess} ${version:-?} $(date -u +%Y-%m-%d)}"
 BUILD_DESC="${BUILD_DESC//\"/\'}"
 BUILD_DESC="${BUILD_DESC//\\/\/}"
 
@@ -155,9 +166,45 @@ if [ -z "$STEAMCMD" ] || ! [ -x "$STEAMCMD" ]; then
 fi
 
 echo
-echo "Uploading app $APP_ID (depots $DEPOT_WIN, $DEPOT_LINUX)${SET_LIVE:+, then setting it live on branch \"$SET_LIVE\"}."
+if [ "$ci" = 1 ]; then # CI logs are shared: don't echo the IDs (they're repository secrets there)
+  echo "Uploading the Windows and Linux depots${SET_LIVE:+, then setting the build live on branch \"$SET_LIVE\"}."
+else
+  echo "Uploading app $APP_ID (depots $DEPOT_WIN, $DEPOT_LINUX)${SET_LIVE:+, then setting it live on branch \"$SET_LIVE\"}."
+fi
 [ "$preview" = 1 ] && echo "Preview build: SteamCMD checks the files and writes logs to steam/output/logs, nothing is uploaded."
-echo "SteamCMD will ask for your password and Steam Guard code."
-"${cmd[@]}"
-echo
-echo "Done. See the build in Steamworks: App Admin > SteamPipe > Builds."
+
+if [ "$ci" = 0 ]; then
+  echo "SteamCMD will ask for your password and Steam Guard code."
+  "${cmd[@]}"
+  echo
+  echo "Done. See the build in Steamworks: App Admin > SteamPipe > Builds."
+  exit 0
+fi
+
+# --ci: nobody can type a password, so SteamCMD gets no input and must use the saved login. Its
+# exit code alone doesn't prove an upload happened, so the BuildID it prints is checked too.
+log="$out/logs/steamcmd.log"
+status=0
+"${cmd[@]}" </dev/null 2>&1 | tee "$log" || status=$?
+build_id="$(sed -n 's/.*(BuildID \([0-9][0-9]*\)).*/\1/p' "$log" | tail -n 1)"
+if [ "$status" -eq 0 ] && { [ "$preview" = 1 ] || [ "${build_id:-0}" != 0 ]; }; then
+  echo
+  echo "Done${build_id:+: BuildID $build_id}. See it in Steamworks: App Admin > SteamPipe > Builds."
+  # In GitHub Actions, hand the BuildID to the next steps.
+  if [ -n "${GITHUB_OUTPUT:-}" ]; then echo "build_id=$build_id" >>"$GITHUB_OUTPUT"; fi
+  exit 0
+fi
+
+echo >&2
+echo "upload.sh: the upload failed (SteamCMD exit code $status${build_id:+, BuildID $build_id})." >&2
+if grep -qiE 'cached credentials not found|login failure|logon denied|invalid password|steam ?guard|two-factor|expired|rate limit|password:' "$log"; then
+  echo "upload.sh: SteamCMD could not log in with the saved login. On your computer run" >&2
+  echo "  steamcmd +login <builder account> +quit   (type the password and Steam Guard code)" >&2
+  echo "then put the new config.vdf into the STEAM_CONFIG_VDF secret again (see steam/README.md)." >&2
+fi
+for f in "$out"/logs/*.log "$HOME/Steam/logs/stderr.txt"; do
+  [ -f "$f" ] && [ "$f" != "$log" ] || continue
+  echo "----- last lines of ${f#"$HOME"/} -----" >&2
+  tail -n 40 "$f" >&2
+done
+exit 1

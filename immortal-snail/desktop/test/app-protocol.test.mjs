@@ -37,7 +37,7 @@ test('never resolves outside the root', () => {
 });
 
 test('Windows: backslashes and drive letters cannot escape', () => {
-  const winRoot = 'C:\\Games\\Immortal Snail Chess\\resources\\app.asar\\app';
+  const winRoot = 'C:\\Games\\Snailmate Chess\\resources\\app.asar\\app';
   const resolve = (u) => resolveAppPath(winRoot, u, path.win32);
   assert.equal(resolve('app://snail/assets/a.js'), `${winRoot}\\assets\\a.js`);
   assert.equal(resolve('app://snail/C:%5cWindows%5cwin.ini'), null);

@@ -1,5 +1,5 @@
 // Linux (x64) depot: everything in steam/content/linux/ goes to the root of the install folder.
-// Launch option in Steamworks: immortal-snail-chess (a small launcher script, see steam/README.md)
+// Launch option in Steamworks: snailmate-chess (a small launcher script, see steam/README.md)
 // Upload this depot from Linux or macOS so the executable bits are kept.
 "DepotBuild"
 {

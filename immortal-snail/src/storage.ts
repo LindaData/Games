@@ -2,6 +2,8 @@
  * localStorage helpers. Every access is wrapped in try/catch: storage can be missing, blocked
  * or full (private windows, embedded viewers), and the game must work fine without it.
  * Keys from older versions (`game:v2`, `stats:v2`, `rules-seen`, …) are ignored.
+ *
+ * The prefix is still `immortal-snail:` (the game's first name) so players keep their saves.
  */
 import { restoreGame, serializeGame, type GameState, type Outcome } from './game/engine';
 import { MODES, isMode, type Mode } from './game/settings';
@@ -9,6 +11,7 @@ import { MODES, isMode, type Mode } from './game/settings';
 const PREFIX = 'immortal-snail:';
 const GAME_KEY = 'game:v3';
 const MODE_KEY = 'mode';
+const INSTALL_HINT_KEY = 'install-hint';
 const statsKey = (mode: Mode) => `stats:${mode}`;
 
 function read(key: string): string | null {
@@ -87,4 +90,14 @@ export function saveStats(mode: Mode, stats: Stats): void {
 export function recordResult(stats: Stats, outcome: Outcome): Stats {
   const key = outcome === 'win' ? 'w' : outcome === 'loss' ? 'l' : 'd';
   return { ...stats, [key]: stats[key] + 1 };
+}
+
+// ---- the "Add to Home Screen" hint --------------------------------------------
+
+export function loadInstallHintDismissed(): boolean {
+  return read(INSTALL_HINT_KEY) === 'dismissed';
+}
+
+export function saveInstallHintDismissed(): void {
+  write(INSTALL_HINT_KEY, 'dismissed');
 }

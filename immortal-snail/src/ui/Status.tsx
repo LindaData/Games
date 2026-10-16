@@ -1,3 +1,4 @@
+import type { Ref } from 'react';
 import type { Color, Square } from 'chess.js';
 import {
   PIECE_NAMES,
@@ -134,12 +135,14 @@ export function SacrificePanel({
   pick,
   kingTapped,
   onStart,
+  startRef,
 }: {
   game: GameState;
   pick: Square | null;
   /** The player just tapped their king, which can't be given up. */
   kingTapped: boolean;
   onStart: () => void;
+  startRef?: Ref<HTMLButtonElement>;
 }) {
   const piece = pick ? pieceAt(game, pick) : null;
   // A king tap after a pick keeps that pick (Start still gives it up), so it is still named.
@@ -158,7 +161,7 @@ export function SacrificePanel({
           {detail}
         </p>
       </div>
-      <button type="button" className="btn btn-primary btn-big shrink-0 sm:w-36" disabled={!piece} onClick={onStart}>
+      <button ref={startRef} type="button" className="btn btn-primary btn-big shrink-0 sm:w-36" disabled={!piece} onClick={onStart}>
         Start
       </button>
     </div>

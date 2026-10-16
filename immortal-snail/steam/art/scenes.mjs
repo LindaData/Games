@@ -3,8 +3,8 @@
  * content is exactly width x height pixels; make-art.mjs screenshots it.
  *
  * The look: the game's warm wood board on green felt, the two snails (green = yours, bronze =
- * theirs) crossing the board toward the enemy kings, and the "Immortal Snail Chess" title in a
- * chunky outlined lockup.
+ * theirs) crossing the board toward the enemy kings, and the game's title in a chunky outlined
+ * lockup.
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -12,13 +12,33 @@ import { fileURLToPath } from 'node:url';
 import { PIECE_CSS, piece, snail, snailDefs } from './shapes.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * The game's name, read from the game's one name setting (immortal-snail/src/site.json) so a
+ * rename is a one-line change there. The lockup puts everything but the last word on a big first
+ * line and the last word on a smaller gold line under it ("Snailmate" / "Chess"); the logo's
+ * snails line up beside that second line by themselves (see fitTitles).
+ */
+export const GAME_NAME = (() => {
+  const fallback = 'Snailmate Chess';
+  const file = path.resolve(here, '..', '..', 'src', 'site.json');
+  try {
+    const name = JSON.parse(readFileSync(file, 'utf8')).name;
+    if (typeof name === 'string' && name.trim()) return name.trim();
+  } catch {
+    // fall through
+  }
+  console.warn(`art: no "name" in ${file}; using "${fallback}"`);
+  return fallback;
+})();
+const xml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const font = (file) => readFileSync(path.join(here, 'fonts', file)).toString('base64');
 const FONT_CSS = `
   @font-face { font-family: 'Lilita One'; src: url(data:font/ttf;base64,${font('LilitaOne-Regular.ttf')}) format('truetype'); }
   @font-face { font-family: 'Fredoka'; font-weight: 300 700; src: url(data:font/ttf;base64,${font('Fredoka.ttf')}) format('truetype'); }
 `;
 
-const COLORS = {
+export const COLORS = {
   feltLight: '#3c7a49',
   feltMid: '#25573a',
   feltDark: '#0f2a1a',
@@ -48,10 +68,23 @@ export function page({ width, height, body, transparent = false }) {
 }
 
 /**
- * Run in the page after fonts load: size each svg.fit's viewBox to its content (plus padding for
- * strokes and shadows), so the lockup fills its box exactly.
+ * Run in the page after fonts load. First moves any flanking snails (g.flank) beside the text
+ * they flank, measured with the real font, so a different title needs no hand tuning. Then sizes
+ * each svg.fit's viewBox to its content (plus padding for strokes and shadows), so the lockup
+ * fills its box exactly.
  */
 export function fitTitles() {
+  for (const g of document.querySelectorAll('g.flank')) {
+    const anchor = g.ownerSVGElement.querySelector('text.flank-anchor');
+    if (!anchor) continue;
+    const half = anchor.getComputedTextLength() / 2; // the text is centred on x = 0
+    const size = Number(g.dataset.size); // the snail's 100-unit box, scaled
+    const gap = Number(g.dataset.gap);
+    const baseline = Number(anchor.getAttribute('y'));
+    const x = g.dataset.side === 'left' ? -half - gap - size : half + gap;
+    // The snail's foot sits at 88% of its box: put it on the text's baseline.
+    g.setAttribute('transform', `translate(${x} ${baseline - size * 0.88}) scale(${size / 100})`);
+  }
   for (const svg of document.querySelectorAll('svg.fit')) {
     const box = svg.querySelector('.fit-content').getBBox();
     const pad = Number(svg.dataset.pad || 0);
@@ -61,7 +94,7 @@ export function fitTitles() {
 
 // ---------------------------------------------------------------------------- backgrounds
 
-function feltSvg(width, height, { spot = [0.5, 0.42], glow = 1, seed = 7 } = {}) {
+export function feltSvg(width, height, { spot = [0.5, 0.42], glow = 1, seed = 7 } = {}) {
   return `<svg class="layer" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <radialGradient id="felt" cx="${spot[0]}" cy="${spot[1]}" r="0.85">
@@ -205,18 +238,25 @@ function boardSvg({ width, height, view = 'side', cam: camOpts, sprites = [], tr
 // ---------------------------------------------------------------------------- title lockup
 
 /**
- * The title as an SVG that fills the given box (CSS pixels). layout 'stack' = "Immortal" over
- * "Snail Chess"; 'row' = one line.
+ * The title as an SVG that fills the given box (CSS pixels). layout 'stack' = "Snailmate" over a
+ * smaller "Chess" (GAME_NAME split before its last word); 'row' = one line. `snails` adds your
+ * green snail and their bronze snail either side of the second line (placed by fitTitles).
  */
-function titleSvg({ left, top, width, height, layout = 'stack', align = 'xMidYMid', stroke = 15, snails = false }) {
+export function titleSvg({ left, top, width, height, layout = 'stack', align = 'xMidYMid', stroke = 15, snails = false }) {
+  const words = GAME_NAME.split(' ');
+  const lead = words.slice(0, -1).join(' ') || GAME_NAME;
+  const last = words.length > 1 ? words[words.length - 1] : '';
   const lines =
-    layout === 'row'
-      ? [{ text: 'Immortal Snail Chess', size: 150, y: 0, fill: 'url(#cream)' }]
+    layout === 'row' || !last
+      ? [{ text: GAME_NAME, size: 150, y: 0, fill: 'url(#cream)', flank: true }]
       : [
-          { text: 'Immortal', size: 104, y: 0, fill: 'url(#gold)' },
-          { text: 'Snail Chess', size: 158, y: 138, fill: 'url(#cream)' },
+          { text: lead, size: 158, y: 0, fill: 'url(#cream)' },
+          { text: last, size: 112, y: 140, fill: 'url(#gold)', flank: true },
         ];
-  const texts = (extra) => lines.map((l) => `<text x="0" y="${l.y}" font-size="${l.size}" ${extra(l)}>${l.text}</text>`).join('');
+  const texts = (extra) => lines.map((l) => `<text x="0" y="${l.y}" font-size="${l.size}" ${extra(l)}>${xml(l.text)}</text>`).join('');
+  const snailSize = 150;
+  const flank = (side, color) =>
+    `<g class="flank" data-side="${side}" data-size="${snailSize}" data-gap="${stroke + 26}">${snail(color, { facing: side === 'left' ? 'right' : 'left' })}</g>`;
   return `<svg class="fit title" data-pad="${stroke + 4}" preserveAspectRatio="${align} meet"
       style="left:${left}px; top:${top}px; width:${width}px; height:${height}px" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -228,22 +268,16 @@ function titleSvg({ left, top, width, height, layout = 'stack', align = 'xMidYMi
       </linearGradient>
     </defs>
     <g class="fit-content">
-      ${
-        snails
-          ? `${snailDefs()}
-        <g transform="translate(-404 -142) scale(1.62)">${snail('green', { facing: 'right' })}</g>
-        <g transform="translate(242 -142) scale(1.62)">${snail('bronze', { facing: 'left' })}</g>`
-          : ''
-      }
+      ${snails ? `${snailDefs()}${flank('left', 'green')}${flank('right', 'bronze')}` : ''}
       <g transform="translate(0 ${stroke * 0.55})" opacity="0.55">${texts(() => `fill="#0b0602" stroke="#0b0602" stroke-width="${stroke * 2}"`)}</g>
-      ${texts((l) => `fill="${l.fill}" stroke="${COLORS.ink}" stroke-width="${stroke * 2}"`)}
+      ${texts((l) => `${l.flank ? 'class="flank-anchor" ' : ''}fill="${l.fill}" stroke="${COLORS.ink}" stroke-width="${stroke * 2}"`)}
       ${texts(() => `fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="2" transform="translate(0 -2)"`)}
     </g>
   </svg>`;
 }
 
 /** A single big snail (plus optional piece) as an absolutely placed SVG. */
-function spriteSvg({ left, top, size, art }) {
+export function spriteSvg({ left, top, size, art }) {
   return `<svg style="position:absolute; left:${left}px; top:${top}px; width:${size}px; height:${size}px; overflow:visible" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <defs>${snailDefs()}</defs>${art}</svg>`;
 }
@@ -296,7 +330,7 @@ function storySprites(view, { snailScale = 1.4, pieces = true } = {}) {
 
 // ---------------------------------------------------------------------------- assets
 
-const dropShadowFilter = `<svg width="0" height="0" style="position:absolute"><defs>
+export const dropShadowFilter = `<svg width="0" height="0" style="position:absolute"><defs>
   <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.45"/></filter>
 </defs></svg>`;
 
@@ -309,7 +343,7 @@ function scene({ width, height, view, cam, title, snailScale, pieces = true, spo
       ${title ? titleSvg(title) : ''}`,
   });
 }
-const landscape = (opts) => scene({ view: 'side', ...opts });
+export const landscape = (opts) => scene({ view: 'side', ...opts });
 const portrait = (opts) => scene({ view: 'front', ...opts });
 
 /** The app / client icon: the bronze snail on a felt tile with a wood rim. */
@@ -361,7 +395,7 @@ export function steamAssets() {
         height: 430,
         cam: { eye: [0, 6.4, 8.0], target: [0, 0, 0.4], fov: 36, shift: [0, 118] },
         snailScale: 1.5,
-        title: { left: 160, top: 12, width: 600, height: 160 },
+        title: { left: 160, top: 10, width: 600, height: 170 },
       }),
     },
     {
@@ -385,7 +419,7 @@ export function steamAssets() {
         height: 706,
         cam: { eye: [0, 6.8, 8.4], target: [0, 0, 0.3], fov: 40, shift: [0, 175] },
         snailScale: 1.5,
-        title: { left: 216, top: 22, width: 800, height: 236 },
+        title: { left: 216, top: 22, width: 800, height: 262 },
       }),
     },
     {
@@ -397,7 +431,7 @@ export function steamAssets() {
         height: 896,
         cam: { eye: [0, 10.8, 11.2], target: [0, 0, 0.2], fov: 46, shift: [0, 150] },
         snailScale: 1.55,
-        title: { left: 40, top: 30, width: 668, height: 250 },
+        title: { left: 40, top: 30, width: 668, height: 318 },
       }),
     },
     {
@@ -409,7 +443,7 @@ export function steamAssets() {
         height: 900,
         cam: { eye: [0, 11.6, 11.6], target: [0, 0, 0.2], fov: 46, shift: [0, 175] },
         snailScale: 1.55,
-        title: { left: 30, top: 34, width: 540, height: 230 },
+        title: { left: 30, top: 34, width: 540, height: 268 },
       }),
     },
     {
@@ -421,7 +455,7 @@ export function steamAssets() {
         height: 430,
         cam: { eye: [0, 6.4, 8.0], target: [0, 0, 0.4], fov: 36, shift: [0, 118] },
         snailScale: 1.5,
-        title: { left: 160, top: 12, width: 600, height: 160 },
+        title: { left: 160, top: 10, width: 600, height: 170 },
       }),
     },
     {

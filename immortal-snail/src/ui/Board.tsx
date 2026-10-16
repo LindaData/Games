@@ -134,6 +134,7 @@ export function Board({ game, gameId, selected, targets, crawling, pick, onSquar
           type="button"
           className={classes.filter(Boolean).join(' ')}
           aria-label={label.join(', ')}
+          data-square={sq}
           tabIndex={focusSq === sq ? 0 : -1}
           onFocus={() => setFocusSq(sq)}
           onClick={() => {

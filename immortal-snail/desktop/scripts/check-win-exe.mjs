@@ -2,17 +2,19 @@
 /**
  * Checks the Windows build without Windows: the exe carries the game icon (all sizes of
  * build/icon.ico) and the version info, and the asar holds the web game.
- *   node scripts/check-win-exe.mjs [path/to/ImmortalSnailChess.exe]
+ *   node scripts/check-win-exe.mjs [path/to/SnailmateChess.exe]
  */
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { EXE_NAMES } from './exe-names.mjs';
 
 const desktopDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const ResEdit = require('resedit'); // comes with electron-builder
-const exe = path.resolve(process.argv[2] ?? path.join(desktopDir, 'release', 'win-unpacked', 'ImmortalSnailChess.exe'));
+const { productName } = JSON.parse(readFileSync(path.join(desktopDir, 'package.json'), 'utf8'));
+const exe = path.resolve(process.argv[2] ?? path.join(desktopDir, 'release', 'win-unpacked', `${EXE_NAMES.win}.exe`));
 
 let failures = 0;
 const check = (ok, msg) => {
@@ -32,7 +34,7 @@ check(JSON.stringify(icoSizes) === JSON.stringify(sizes), 'exe icon matches buil
 
 const [version] = ResEdit.Resource.VersionInfo.fromEntries(res.entries);
 const strings = version?.getAllLanguagesForStringValues?.().length ? version.getStringValues(version.getAllLanguagesForStringValues()[0]) : {};
-check(strings.ProductName === 'Immortal Snail Chess', `ProductName "${strings.ProductName}"`);
+check(strings.ProductName === productName, `ProductName "${strings.ProductName}"`);
 check(Boolean(strings.FileVersion || strings.ProductVersion), `version ${strings.ProductVersion ?? strings.FileVersion}`);
 
 const asar = readFileSync(path.join(path.dirname(exe), 'resources', 'app.asar'));

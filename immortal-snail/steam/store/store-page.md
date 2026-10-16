@@ -1,4 +1,4 @@
-# Immortal Snail Chess: Steam store page
+# Snailmate Chess: Steam store page
 
 Copy and paste into Steamworks (Store Admin). Lengths are within Steam's limits
 (the short description is 275 characters).
@@ -11,7 +11,7 @@ piece and your snail starts in its place).
 
 ## Game name
 
-Immortal Snail Chess
+Snailmate Chess
 
 ## Short description (max 300 characters)
 
@@ -49,7 +49,7 @@ You'll get it in ten seconds. You'll still be thinking about it ten minutes late
 [*] Three modes, each with its own win/loss record.
 [*] A friendly computer that plays loosely and differently every game.
 [*] Pick up and play: the game saves after every move and resumes where you left off.
-[*] Mouse, touch or keyboard (arrow keys move around the board).
+[*] Full controller support, plus mouse, touch and keyboard.
 [*] Light and dark themes that follow your system.
 [*] Fully offline. No account, no ads, no data collected.
 [/list]
@@ -62,6 +62,7 @@ You'll get it in ten seconds. You'll still be thinking about it ten minutes late
 - Learn it in 10 seconds; games take about 10 minutes
 - Friendly computer opponent that plays differently every game
 - Saves after every move; works fully offline
+- Full controller support, plus mouse, touch and keyboard
 
 ## Screenshots (upload in this order)
 
@@ -76,6 +77,13 @@ All 1920x1080, taken from the real game by `npm run screenshots` (in `steam/`):
 7. `07-their-snail-wins.png`: their bronze snail gets your king, "The snail got you!"
 
 Lead with 02, 03 or 06 if you prefer action over the menu as the first image.
+
+## Trailer
+
+`trailer.mp4`, about 32 seconds, 1920x1080, H.264, 30 fps, no sound: the title, "Your snail hunts
+their king.", then Ghost, Hungry and Sacrifice Snails played for real, then "Wishlist now". Upload
+it under *Store Admin > Trailers* with `trailer-thumbnail.jpg` as the thumbnail. Remake it any time
+with `npm run trailer` (in `steam/`).
 
 ## Tags (in this order)
 
@@ -96,7 +104,7 @@ Primary: Strategy. Also: Casual, Indie.
 | Memory | 4 GB RAM | 4 GB RAM |
 | Graphics | Any (no 3D acceleration or WebGL needed) | Any (no 3D acceleration or WebGL needed) |
 | Storage | 400 MB available space | 400 MB available space |
-| Additional notes | Plays with mouse, touch or keyboard | Plays with mouse, touch or keyboard |
+| Additional notes | Mouse, touch, keyboard or controller | Mouse, touch, keyboard or controller |
 
 Minimum and recommended are the same.
 
@@ -136,7 +144,7 @@ English: interface yes, full audio no (there is no voice), subtitles not applica
 - [ ] All graphics uploaded from `store/art/` (Store Assets + Library Assets), community and
       client icons set
 - [ ] At least 5 screenshots uploaded from `store/screenshots/` (all 7, in order)
-- [ ] Trailer (optional but recommended): 30-60 s of real gameplay, ending on a snail win
+- [ ] Trailer uploaded: `store/trailer.mp4` (real gameplay, made by `steam/trailer/`)
 - [ ] Content survey answered, AI disclosure answered
 - [ ] Price set (US$2.99) and regional prices accepted
 - [ ] Store page submitted for review, review passed

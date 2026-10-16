@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Square } from 'chess.js';
 import { requestAiMove } from './ai/client';
+import { track } from './analytics';
 import { chooseMove, type AiRequest } from './ai/search';
 import {
   applyBlackMove,
@@ -12,14 +13,21 @@ import {
   newGame,
   pieceAt,
   startSacrifice,
+  turnsPlayed,
   whiteMoves,
   type GameState,
 } from './game/engine';
 import { AI_SETTINGS, type Mode } from './game/settings';
 import { rankOf, turnsUntilCrawl } from './game/snail';
+import { activeScope, boardSquare, currentFocus, defaultFocus, moveFocus } from './input/focus';
+import type { PadAction } from './input/gamepad';
+import { useGamepad } from './input/useGamepad';
+import { linkShare, resultShare, shareOrCopy, type ShareData } from './share';
+import { SITE } from './site';
 import { loadAllStats, loadGame, loadMode, recordResult, saveGame, saveMode, saveStats } from './storage';
 import { Board } from './ui/Board';
 import { NewGameButton } from './ui/Controls';
+import { InstallHint, ShareIcon, Toast, type ToastMessage } from './ui/Extras';
 import { GameOverCard, ModePicker, RulesCard, SnailPair, StatsLine } from './ui/Panels';
 import { SacrificePanel, Status } from './ui/Status';
 import { MODE_INFO } from './ui/text';
@@ -78,6 +86,12 @@ export default function App() {
   const [crawling, setCrawling] = useState(false);
   const [overlayHidden, setOverlayHidden] = useState(false);
   const [stats, setStats] = useState(loadAllStats);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const toastId = useRef(0);
+  /** A controller has been used: the rules card mentions its buttons. */
+  const [padUsed, setPadUsed] = useState(false);
+  const newGameRef = useRef<HTMLButtonElement>(null);
+  const startRef = useRef<HTMLButtonElement>(null);
   // A game restored already finished was counted when it ended.
   const countedRef = useRef<number | null>(app.game.phase === 'over' ? 1 : null);
 
@@ -100,6 +114,7 @@ export default function App() {
     countedRef.current = gameId;
     const { mode: m, result } = game;
     setStats((s) => ({ ...s, [m]: recordResult(s[m], result.outcome) }));
+    track('game_end', { mode: m, result: result.outcome, cause: result.cause, turns: turnsPlayed(game) });
   }, [game, gameId]);
 
   // ---- the computer's turn --------------------------------------------------
@@ -156,6 +171,7 @@ export default function App() {
   // ---- actions --------------------------------------------------------------
   const startGame = useCallback((m: Mode) => {
     setApp((cur) => ({ gameId: cur.gameId + 1, game: newGame(m) }));
+    track('game_start', { mode: m });
     setSelected(null);
     setPick(null);
     setKingTapped(false);
@@ -174,6 +190,24 @@ export default function App() {
 
   const closePicker = useCallback(() => setPicker('closed'), []);
   const closeRules = useCallback(() => setRulesOpen(false), []);
+
+  const say = useCallback((text: string) => setToast({ id: ++toastId.current, text }), []);
+  const clearToast = useCallback(() => setToast(null), []);
+
+  /** Share sheet, or copy with a toast. Counted only when it went through (not when cancelled). */
+  const share = useCallback(
+    async (kind: 'link' | 'result', data: ShareData | null) => {
+      if (!data) return;
+      const outcome = await shareOrCopy(data);
+      if (outcome.ok) {
+        track('share', { kind, method: outcome.method });
+        if (outcome.method === 'copy') say(kind === 'link' ? 'Link copied' : 'Result copied');
+      } else if (outcome.reason === 'failed') {
+        say(`Copy this link: ${data.url}`);
+      }
+    },
+    [say],
+  );
 
   const canMove = game.phase === 'white' && !crawling;
   const targets = useMemo(
@@ -201,8 +235,17 @@ export default function App() {
     else setSelected(null);
   };
 
+  /**
+   * Sacrifice's Start button goes away (the game starts) or turns off (the pick is cleared): if it
+   * has focus, hand focus to the board rather than let it fall to <body> (no ring, a lost D-pad press).
+   */
+  const keepFocusOffStart = () => {
+    if (startRef.current && document.activeElement === startRef.current) boardSquare()?.focus({ preventScroll: true });
+  };
+
   const onStart = () => {
     if (!canSacrifice(game, pick)) return;
+    keepFocusOffStart();
     setApp((cur) => (cur.game === game ? { ...cur, game: startSacrifice(cur.game, pick) } : cur));
     setPick(null);
   };
@@ -210,17 +253,73 @@ export default function App() {
   // While a dialog is open the game-over card waits (it would take focus from the dialog).
   const showOverlay = game.phase === 'over' && !crawling && !overlayHidden && picker === 'closed' && !rulesOpen;
 
+  // ---- controller -------------------------------------------------------------
+  // The D-pad moves focus (squares, buttons, cards), A presses what has focus, B goes back,
+  // X opens the rules, Y / Start is New game. The focus ring shows until the mouse, a finger or
+  // the keyboard is used again.
+  const onPad = (action: PadAction) => {
+    document.documentElement.dataset.input = 'pad';
+    setPadUsed(true);
+    const dialogOpen = picker !== 'closed' || rulesOpen;
+    switch (action) {
+      case 'up':
+      case 'down':
+      case 'left':
+      case 'right':
+        moveFocus(action);
+        return;
+      case 'a': {
+        const el = currentFocus();
+        if (!el) defaultFocus(activeScope())?.focus();
+        // Sacrifice: A on the piece already picked confirms it (like pressing Start).
+        else if (game.phase === 'setup' && pick && el.dataset.square === pick) onStart();
+        else el.click();
+        return;
+      }
+      case 'b':
+        if (rulesOpen) closeRules();
+        else if (picker === 'open') closePicker();
+        else if (picker === 'first') return;
+        else if (showOverlay) setOverlayHidden(true);
+        else if (game.phase === 'setup') {
+          keepFocusOffStart();
+          setPick(null);
+          setKingTapped(false);
+        } else setSelected(null);
+        return;
+      case 'x':
+        if (picker === 'closed') setRulesOpen((open) => !open);
+        return;
+      case 'y':
+      case 'start':
+        if (!dialogOpen) newGameRef.current?.click();
+        return;
+    }
+  };
+  useGamepad(onPad);
+
+  useEffect(() => {
+    const notPad = () => delete document.documentElement.dataset.input;
+    window.addEventListener('pointerdown', notPad, true);
+    window.addEventListener('keydown', notPad, true);
+    return () => {
+      window.removeEventListener('pointerdown', notPad, true);
+      window.removeEventListener('keydown', notPad, true);
+    };
+  }, []);
+
   return (
-    <main className="mx-auto w-full max-w-[1040px] px-4 pb-10 pt-4 sm:pt-6">
+    <main className="app-shell mx-auto w-full max-w-[1040px]">
       <header className="mx-auto mb-3 flex max-w-[560px] items-center gap-3 lg:mx-0 lg:max-w-none">
         <SnailPair className="h-9 shrink-0 sm:h-12" />
         <div className="min-w-0">
-          <h1 className="text-xl font-extrabold leading-tight sm:text-2xl">Immortal Snail Chess</h1>
+          <h1 className="text-xl font-extrabold leading-tight sm:text-2xl">{SITE.name}</h1>
           <p className="text-sm text-muted">
             <strong className="text-ink">{MODE_INFO[mode].name}</strong> · Get their king before their snail gets yours.
           </p>
         </div>
       </header>
+      <InstallHint covered={picker !== 'closed' || rulesOpen} className="mx-auto mb-3 max-w-[560px] lg:mx-0" />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-6">
         <section className="relative mx-auto flex w-full max-w-[560px] shrink-0 flex-col gap-3 lg:mx-0" aria-label="Game">
@@ -239,22 +338,33 @@ export default function App() {
                 stats={stats[mode]}
                 placement={cardPlacement(game)}
                 onPlayAgain={() => startGame(mode)}
+                onShare={() => void share('result', resultShare(game))}
                 onHide={() => setOverlayHidden(true)}
               />
             )}
           </Board>
           {game.phase === 'setup' ? (
-            <SacrificePanel game={game} pick={pick} kingTapped={kingTapped} onStart={onStart} />
+            <SacrificePanel game={game} pick={pick} kingTapped={kingTapped} onStart={onStart} startRef={startRef} />
           ) : (
             <Status game={game} crawling={crawling} />
           )}
         </section>
 
         <aside className="mx-auto flex w-full max-w-[560px] flex-col gap-3 lg:mx-0 lg:max-w-[400px] lg:flex-1">
-          <div className="panel flex gap-3 p-3">
-            <NewGameButton inProgress={inProgress} onNewGame={() => setPicker('open')} />
+          <div className="panel controls flex gap-3 p-3">
+            <NewGameButton buttonRef={newGameRef} inProgress={inProgress} onNewGame={() => setPicker('open')} />
             <button type="button" className="btn btn-secondary shrink-0" aria-haspopup="dialog" onClick={() => setRulesOpen(true)}>
               Rules
+            </button>
+            {/* Just the icon on phones, so New game ("Sure? Tap again") stays on one line. */}
+            <button
+              type="button"
+              className="btn btn-secondary btn-share shrink-0"
+              aria-label="Share"
+              onClick={() => void share('link', linkShare())}
+            >
+              <ShareIcon />
+              <span className="hidden sm:inline">Share</span>
             </button>
           </div>
           <StatsLine mode={mode} stats={stats[mode]} />
@@ -262,7 +372,8 @@ export default function App() {
       </div>
 
       {picker !== 'closed' && <ModePicker current={mode} onPick={pickMode} onClose={picker === 'open' ? closePicker : undefined} />}
-      {rulesOpen && <RulesCard mode={mode} onClose={closeRules} />}
+      {rulesOpen && <RulesCard mode={mode} controller={padUsed} onClose={closeRules} />}
+      <Toast toast={toast} onDone={clearToast} />
     </main>
   );
 }

@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Immortal Snail Chess — Electron main process.
+ * Snailmate Chess — Electron main process.
  *
  * One window that shows the web game (built into ../app) from the app://snail/ scheme.
  * No menu bar, no Node in the page, no navigation away from the game.
@@ -11,8 +11,10 @@ const { app, BrowserWindow, Menu, dialog, nativeTheme, powerMonitor, protocol, s
 const { APP_ORIGIN, APP_SCHEME, START_URL, SCHEME_PRIVILEGES, createAppProtocolHandler } = require('./app-protocol');
 const { loadWindowState, saveWindowState } = require('./window-state');
 
-const TITLE = 'Immortal Snail Chess';
-const APP_ID = 'com.lindadata.immortalsnailchess';
+// The window title is the app's name: productName in package.json.
+const TITLE = app.getName();
+// Must match appId in electron-builder.yml.
+const APP_ID = 'com.lindadata.snailmatechess';
 const IS_DEV = !app.isPackaged;
 const IS_MAC = process.platform === 'darwin';
 const WEB_ROOT = path.join(__dirname, '..', 'app');

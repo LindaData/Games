@@ -7,7 +7,7 @@
  *   node scripts/build-web.mjs --ci      # always run npm ci in the game first
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -47,10 +47,15 @@ if (/(src|href)="\/(?!\/)/.test(html)) {
   process.exit(1);
 }
 
+// Web-only files the app never uses: the link-preview image, and the offline service worker
+// (only registered on http(s) pages, never on app://).
+for (const file of ['og.png', 'sw.js']) rmSync(path.join(outDir, file), { force: true });
+
 // Licence texts of everything bundled into the game (React, chess.js, ...), shipped next to the
 // exe as THIRD-PARTY-NOTICES.txt (Electron's and Chromium's come with Electron itself).
 const ls = spawnSync('npm', ['ls', '--omit=dev', '--all', '--parseable'], { cwd: gameDir, encoding: 'utf8', shell: isWin });
-const notices = ['Immortal Snail Chess includes the following open source software.', ''];
+const { productName } = JSON.parse(readFileSync(path.join(desktopDir, 'package.json'), 'utf8'));
+const notices = [`${productName} includes the following open source software.`, ''];
 for (const dir of [...new Set((ls.stdout ?? '').split(/\r?\n/).filter(Boolean))].slice(1).sort()) {
   let pkg;
   try {

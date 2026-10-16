@@ -1,7 +1,9 @@
 import { useEffect, useRef, type PointerEvent, type ReactNode, type RefObject } from 'react';
 import { SNAIL_STRIKES, type GameState } from '../game/engine';
 import { MODES, type Mode } from '../game/settings';
+import { SITE } from '../site';
 import type { Stats } from '../storage';
+import { ShareIcon } from './Extras';
 import { PieceIcon } from './PieceIcon';
 import { Snail } from './Snail';
 import { MODE_INFO, MOVE_HINT, RULES, recordText } from './text';
@@ -140,7 +142,7 @@ export function ModePicker({ current, onPick, onClose }: { current: Mode; onPick
         <SnailPair className="h-9 shrink-0 sm:h-11" />
         <div className="min-w-0 flex-1">
           <h2 id="picker-title" className="text-lg font-extrabold leading-tight sm:text-xl">
-            Immortal Snail Chess
+            {SITE.name}
           </h2>
           <p className="text-sm text-muted">Pick a game</p>
         </div>
@@ -157,6 +159,7 @@ export function ModePicker({ current, onPick, onClose }: { current: Mode; onPick
             ref={mode === current ? currentRef : undefined}
             type="button"
             className="mode-card"
+            data-pad-default={mode === current ? '' : undefined}
             onPointerDown={dropScriptFocus}
             onClick={() => onPick(mode)}
           >
@@ -179,8 +182,11 @@ export function ModePicker({ current, onPick, onClose }: { current: Mode; onPick
   );
 }
 
+/** What each controller button does (shown in the rules once a controller has been used). */
+const PAD_HINT = 'Controller: A select · B back · X rules · Y new game';
+
 /** The rules card for the current mode: the shared rules, then the mode's own rule (highlighted). */
-export function RulesCard({ mode, onClose }: { mode: Mode; onClose: () => void }) {
+export function RulesCard({ mode, controller, onClose }: { mode: Mode; controller?: boolean; onClose: () => void }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   return (
     <Modal labelledBy="rules-title" describedBy="rules-list" initialFocus={buttonRef} onClose={onClose}>
@@ -190,7 +196,7 @@ export function RulesCard({ mode, onClose }: { mode: Mode; onClose: () => void }
           <h2 id="rules-title" className="text-lg font-extrabold leading-tight sm:text-xl">
             {MODE_INFO[mode].name}
           </h2>
-          <p className="text-sm text-muted">Immortal Snail Chess</p>
+          <p className="text-sm text-muted">{SITE.name}</p>
         </div>
       </div>
       <SnailLegend className="mt-4" />
@@ -201,6 +207,7 @@ export function RulesCard({ mode, onClose }: { mode: Mode; onClose: () => void }
         <li className="mode-rule">{MODE_INFO[mode].rule}</li>
       </ol>
       <p className="mt-3 text-sm text-muted">{MOVE_HINT}</p>
+      {controller && <p className="mt-1 text-sm text-muted">{PAD_HINT}</p>}
       <button ref={buttonRef} type="button" className="btn btn-primary btn-big mt-4 w-full" onPointerDown={dropScriptFocus} onClick={onClose}>
         Close
       </button>
@@ -217,6 +224,7 @@ export function GameOverCard({
   stats,
   placement,
   onPlayAgain,
+  onShare,
   onHide,
 }: {
   game: GameState;
@@ -224,6 +232,7 @@ export function GameOverCard({
   /** Where the card sits: away from the king the result is about (see focalKing), or in the middle. */
   placement: 'top' | 'middle' | 'bottom';
   onPlayAgain: () => void;
+  onShare: () => void;
   onHide: () => void;
 }) {
   const playRef = useRef<HTMLButtonElement>(null);
@@ -243,12 +252,18 @@ export function GameOverCard({
         <p id="result-reason" className="mt-1 text-sm">
           {result.reason}
         </p>
-        <p className="mt-2 text-xs text-muted">{recordText(game.mode, stats)}</p>
-        <div className="mt-3 flex flex-col items-center gap-1.5">
-          <button ref={playRef} type="button" className="btn btn-primary w-full" onClick={onPlayAgain}>
-            Play again
+        <p className="record mt-2 text-muted">{recordText(game.mode, stats)}</p>
+        <button ref={playRef} type="button" className="btn btn-primary mt-3 w-full" onClick={onPlayAgain}>
+          Play again
+        </button>
+        <div className="mt-2 flex items-center gap-2">
+          <button type="button" className="btn btn-secondary btn-share btn-small flex-1" onClick={onShare}>
+            <ShareIcon />
+            <span>
+              Share<span className="share-result-word"> result</span>
+            </span>
           </button>
-          <button type="button" className="link-btn text-xs" onClick={onHide}>
+          <button type="button" className="link-btn view-board shrink-0" onClick={onHide}>
             View board
           </button>
         </div>

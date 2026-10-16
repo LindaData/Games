@@ -1,5 +1,5 @@
 /**
- * Pure game state for Immortal Snail Chess.
+ * Pure game state for Snailmate Chess.
  *
  * A turn = one White (player) move followed by Black's (computer) reply. After the reply on
  * every third turn both snails crawl one square, at the same time, toward the enemy king: yours
@@ -319,6 +319,11 @@ export function describeComputerMove(state: GameState): string | null {
   if (m.captured) text += `, taking your ${PIECE_NAMES[m.captured]}`;
   if (m.promotion) text += `, promoting to a ${PIECE_NAMES[m.promotion]}`;
   return `${text}.`;
+}
+
+/** How many turns have been played: your moves so far (a turn is your move + the reply). */
+export function turnsPlayed(state: GameState): number {
+  return Math.ceil(state.history.length / 2);
 }
 
 /** The crawl at the end of the previous turn: its news (what the snails ate) shows for one turn. */

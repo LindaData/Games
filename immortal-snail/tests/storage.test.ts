@@ -4,10 +4,12 @@ import {
   emptyStats,
   loadAllStats,
   loadGame,
+  loadInstallHintDismissed,
   loadMode,
   loadStats,
   recordResult,
   saveGame,
+  saveInstallHintDismissed,
   saveMode,
   saveStats,
 } from '../src/storage';
@@ -109,5 +111,20 @@ describe('record', () => {
     expect(loadStats('ghost')).toEqual({ w: 0, l: 0, d: 0 });
     store.data.set('immortal-snail:stats:ghost', JSON.stringify({ w: -1, l: 'x', d: 2.7 }));
     expect(loadStats('ghost')).toEqual({ w: 0, l: 0, d: 2 });
+  });
+});
+
+describe('Add to Home Screen hint', () => {
+  it('remembers that it was closed, under the old immortal-snail: prefix', () => {
+    expect(loadInstallHintDismissed()).toBe(false);
+    saveInstallHintDismissed();
+    expect(store.data.get('immortal-snail:install-hint')).toBe('dismissed');
+    expect(loadInstallHintDismissed()).toBe(true);
+  });
+
+  it('shows again (no crash) when storage is blocked', () => {
+    blockStorage();
+    expect(loadInstallHintDismissed()).toBe(false);
+    expect(() => saveInstallHintDismissed()).not.toThrow();
   });
 });

@@ -1,4 +1,4 @@
-# Immortal Snail Chess: desktop app
+# Snailmate Chess: desktop app
 
 The web game (`..`) wrapped in Electron for Steam (Windows, Linux, macOS). The game itself is
 not changed: `npm run build:web` builds it with a relative base into `app/`, and the app serves
@@ -11,15 +11,17 @@ npm start             # run it (unpackaged: F5 / Ctrl+R reload, F12 DevTools)
 npm run dist:linux    # release/linux-unpacked + .tar.gz
 npm run dist:win      # release/win-unpacked + .zip (works on Linux/macOS too, no Wine needed)
 npm run dist:mac      # release/*.zip, universal (on a Mac)
-npm run smoke         # launch the packaged build: mode picker, a Ghost move + reply, restart keeps the save
+npm run smoke         # launch the packaged build: mode picker, a Ghost move + reply, restart keeps the save,
+                      # no service worker / analytics, Share copies the link
 npm test              # unit tests for the app:// file server and the window state
 ```
 
-How it behaves: one window ("Immortal Snail Chess", 1280x860, at least 420x700) that remembers
+How it behaves: one window ("Snailmate Chess", 1280x860, at least 420x700) that remembers
 its size, position and fullscreen state; no menu bar; F11 fullscreen, Esc leaves it, Ctrl+Q quits
 (Cmd+Q on a Mac), Ctrl +/-/0 zoom. Only one copy runs at a time. Saves (localStorage) live in the
-user data folder (`%APPDATA%\Immortal Snail Chess`, `~/.config/Immortal Snail Chess`,
-`~/Library/Application Support/Immortal Snail Chess`).
+user data folder (`%APPDATA%\Snailmate Chess`, `~/.config/Snailmate Chess`,
+`~/Library/Application Support/Snailmate Chess`). Controllers work through the game itself
+(Gamepad API: D-pad / stick, A, B, X, Y / Start), so Steam Input needs no special layout.
 
 Security: no Node.js in the page (context isolation, sandbox), a strict Content Security Policy,
 no navigation or new windows, every permission request denied, no network access at all
@@ -27,10 +29,19 @@ no navigation or new windows, every permission request denied, no network access
 Electron fuses flipped (no `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` or `--inspect`, app code only
 from `app.asar`).
 
-Linux: the packaged `immortal-snail-chess` is a launcher script (`scripts/linux-launcher.sh`)
-next to the real binary, `immortal-snail-chess.bin`. Steam can't install Chromium's setuid
+Linux: the packaged `snailmate-chess` is a launcher script (`scripts/linux-launcher.sh`)
+next to the real binary, `snailmate-chess.bin`. Steam can't install Chromium's setuid
 sandbox helper, so the launcher keeps the sandbox on when user namespaces work and adds
 `--no-sandbox` only when no sandbox is possible (see `../steam/README.md`).
+
+The web version's extras stay off here: the game only registers its offline service worker and
+loads Vercel Analytics on http(s) pages, never on `app://` (`build:web` also leaves `sw.js` and the
+link-preview image out). Share has no share sheet in the app, so it copies the link.
+
+Names: the app name is `productName` in `package.json` (window title, user data folder) plus
+`appId`, `artifactName` and the two `executableName`s in `electron-builder.yml` (the smoke test and
+the exe check read them from there, via `scripts/exe-names.mjs`); `APP_ID` in
+`src/main.js` must match `appId`. Renaming also means the Steam launch options (`../steam/`).
 
 Files: `src/main.js` (window, shortcuts, security), `src/app-protocol.js` (app:// file server),
 `src/window-state.js`, `electron-builder.yml`, `scripts/after-pack.cjs` (fuses + Linux

@@ -1,4 +1,4 @@
-// SteamPipe app build script for Immortal Snail Chess.
+// SteamPipe app build script for Snailmate Chess.
 // upload.sh / upload.ps1 fill in the placeholders and write the result to steam/output/.
 // Relative paths are relative to that output folder.
 "AppBuild"

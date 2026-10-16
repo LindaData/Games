@@ -1,5 +1,5 @@
 #!/bin/sh
-# Immortal Snail Chess launcher for Linux (this is what Steam starts).
+# Snailmate Chess launcher for Linux (this is what Steam starts).
 #
 # Electron (Chromium) sandboxes its child processes with Linux user namespaces, or, when those
 # are unavailable, with the setuid-root helper "chrome-sandbox". When neither works it refuses to
@@ -15,8 +15,10 @@
 # own local files and blocks all navigation, so that fallback is low risk.
 # Set SNAIL_SANDBOX=off to force --no-sandbox, SNAIL_SANDBOX=on to never add it.
 
-here=$(dirname "$(readlink -f "$0")")
-bin="$here/immortal-snail-chess.bin"
+# This script is <name> (snailmate-chess); the real binary sits next to it as <name>.bin.
+self=$(readlink -f "$0")
+here=$(dirname "$self")
+bin="$self.bin"
 
 sandbox_ok() {
   case "${SNAIL_SANDBOX:-auto}" in

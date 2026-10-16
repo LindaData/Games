@@ -2,11 +2,42 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Play chess against the computer with two immortal snails: yours crawls toward their king, theirs toward yours." />
+    <!-- %SITE_…% placeholders come from src/site.json (filled in by vite-plugin-site.ts). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>%SITE_NAME%</title>
+    <meta name="description" content="%SITE_DESCRIPTION%" />
     <meta name="color-scheme" content="light dark" />
-    <title>Immortal Snail Chess</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐌</text></svg>" />
+    <meta name="theme-color" content="%SITE_COLOR_LIGHT%" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="%SITE_COLOR_DARK%" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="/favicon-16.png" sizes="16x16" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Home-screen app (iPhone / Android) -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="%SITE_SHORT_NAME%" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- Link previews -->
+    <link rel="canonical" href="%SITE_URL%/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="%SITE_NAME%" />
+    <meta property="og:title" content="%SITE_NAME%" />
+    <meta property="og:description" content="%SITE_DESCRIPTION%" />
+    <meta property="og:url" content="%SITE_URL%/" />
+    <meta property="og:image" content="%SITE_URL%/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="%SITE_NAME%: a chess board with two snails, a green one and a bronze one." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="%SITE_NAME%" />
+    <meta name="twitter:description" content="%SITE_DESCRIPTION%" />
+    <meta name="twitter:image" content="%SITE_URL%/og.png" />
+    <meta name="twitter:image:alt" content="%SITE_NAME%: a chess board with two snails, a green one and a bronze one." />
   </head>
   <body>
     <div id="root"></div>

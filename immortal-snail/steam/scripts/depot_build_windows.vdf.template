@@ -1,5 +1,5 @@
 // Windows (x64) depot: everything in steam/content/windows/ goes to the root of the install
-// folder. Launch option in Steamworks: ImmortalSnailChess.exe
+// folder. Launch option in Steamworks: SnailmateChess.exe
 "DepotBuild"
 {
 	"DepotID" "{{DEPOT_WIN}}"

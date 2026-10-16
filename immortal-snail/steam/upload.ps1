@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Upload Immortal Snail Chess to Steam with SteamCMD (Windows PowerShell 5.1 or PowerShell 7).
+  Upload Snailmate Chess to Steam with SteamCMD (Windows PowerShell 5.1 or PowerShell 7).
 
 .DESCRIPTION
   Same as upload.sh. Set these first (in the same PowerShell window):
@@ -33,6 +33,10 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
+# The game's executables (see ..\desktop\electron-builder.yml and upload.sh).
+$WinExe = 'SnailmateChess.exe'
+$LinuxExe = 'snailmate-chess'
+
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $templates = Join-Path $here 'scripts'
 $content = Join-Path $here 'content'
@@ -62,9 +66,9 @@ if ($setLive -in @('default', 'public')) { $problems.Add('SET_LIVE cannot be the
 Write-Host "Checking content in $content ..."
 $win = Join-Path $content 'windows'
 $lin = Join-Path $content 'linux'
-$need = @((Join-Path $win 'ImmortalSnailChess.exe'), (Join-Path $win 'resources\app.asar'))
+$need = @((Join-Path $win $WinExe), (Join-Path $win 'resources\app.asar'))
 if (-not $WindowsOnly) {
-  $need += @((Join-Path $lin 'immortal-snail-chess'), (Join-Path $lin 'immortal-snail-chess.bin'), (Join-Path $lin 'resources\app.asar'))
+  $need += @((Join-Path $lin $LinuxExe), (Join-Path $lin "$LinuxExe.bin"), (Join-Path $lin 'resources\app.asar'))
 }
 foreach ($file in $need) {
   if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { $problems.Add("missing $file (unzip the builds into steam\content\windows and steam\content\linux)") }
@@ -77,8 +81,13 @@ if ($problems.Count -gt 0) {
 
 # ---- build scripts ------------------------------------------------------------------------------
 $version = '?'
-try { $version = (Get-Content -Raw (Join-Path $here '..\desktop\package.json') | ConvertFrom-Json).version } catch { }
-$desc = if ($cfg.BUILD_DESC) { $cfg.BUILD_DESC } else { "Immortal Snail Chess $version $((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd'))" }
+$product = 'Snailmate Chess'
+try {
+  $pkg = Get-Content -Raw (Join-Path $here '..\desktop\package.json') | ConvertFrom-Json
+  if ($pkg.version) { $version = $pkg.version }
+  if ($pkg.productName) { $product = $pkg.productName }
+} catch { }
+$desc = if ($cfg.BUILD_DESC) { $cfg.BUILD_DESC } else { "$product $version $((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd'))" }
 $desc = $desc.Replace('"', "'").Replace('\', '/')
 $values = @{
   'APP_ID'      = $cfg.APP_ID

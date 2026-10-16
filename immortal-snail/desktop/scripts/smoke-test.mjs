@@ -7,7 +7,9 @@
  *   - the saved game survives a page reload AND a quit (Ctrl+Q) + restart,
  *   - the window state file is written, navigation away / window.open are blocked,
  *     path traversal on app:// is refused, MIME types and the CSP header are right,
- *   - no page errors or CSP violations happen.
+ *   - no page errors or CSP violations happen,
+ *   - the web version's extras stay off in the app: no service worker, no analytics, and Share
+ *     copies the link (no share sheet here).
  *
  *   node scripts/smoke-test.mjs                 # packaged build in release/ for this OS
  *   node scripts/smoke-test.mjs --dev           # unpackaged: electron . (needs npm run build:web)
@@ -23,8 +25,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
+import { EXE_NAMES } from './exe-names.mjs';
 
 const desktopDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const { productName } = JSON.parse(readFileSync(path.join(desktopDir, 'package.json'), 'utf8'));
 const argv = process.argv.slice(2);
 const DEV = argv.includes('--dev');
 const exeArg = argv.includes('--exe') ? argv[argv.indexOf('--exe') + 1] : null;
@@ -45,13 +49,13 @@ if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND
 
 function defaultExe() {
   const release = path.join(desktopDir, 'release');
-  if (process.platform === 'linux') return path.join(release, 'linux-unpacked', 'immortal-snail-chess');
-  if (process.platform === 'win32') return path.join(release, 'win-unpacked', 'ImmortalSnailChess.exe');
+  if (process.platform === 'linux') return path.join(release, 'linux-unpacked', EXE_NAMES.linux);
+  if (process.platform === 'win32') return path.join(release, 'win-unpacked', `${EXE_NAMES.win}.exe`);
   for (const dir of ['mac-universal', 'mac-arm64', 'mac']) {
-    const app = path.join(release, dir, 'Immortal Snail Chess.app', 'Contents', 'MacOS', 'Immortal Snail Chess');
+    const app = path.join(release, dir, `${productName}.app`, 'Contents', 'MacOS', productName);
     if (existsSync(app)) return app;
   }
-  return path.join(release, 'mac', 'Immortal Snail Chess.app', 'Contents', 'MacOS', 'Immortal Snail Chess');
+  return path.join(release, 'mac', `${productName}.app`, 'Contents', 'MacOS', productName);
 }
 
 const electronBin = () => {
@@ -67,7 +71,7 @@ if (!existsSync(exe)) {
 // A throwaway profile so the test never touches (or depends on) a real save.
 const profile = mkdtempSync(path.join(os.tmpdir(), 'snail-smoke-'));
 const env = { ...process.env, XDG_CONFIG_HOME: profile, APPDATA: profile, ELECTRON_ENABLE_LOGGING: '' };
-const userDataDir = path.join(profile, 'Immortal Snail Chess');
+const userDataDir = path.join(profile, productName);
 const shotsDir = path.join(desktopDir, 'release', 'smoke');
 mkdirSync(shotsDir, { recursive: true });
 
@@ -184,7 +188,7 @@ async function main() {
   let { page } = app;
   await page.waitForLoadState('load');
   check(page.url().startsWith('app://snail/'), `[run 1] page served from app://snail/ (${page.url()})`);
-  check(/Immortal Snail Chess/.test(await page.title()), `[run 1] document title "${await page.title()}"`);
+  check((await page.title()) === productName, `[run 1] document title "${await page.title()}"`);
   await page.screenshot({ path: path.join(shotsDir, '1-first-launch.png') });
 
   // A first launch opens on the start screen: the mode picker with its three modes.
@@ -247,6 +251,21 @@ async function main() {
   check(worker.created >= 1 && worker.messages >= 1 && worker.errors === 0, `[run 1] reply computed in the Web Worker (${JSON.stringify(worker)})`);
   const workerUrls = page.workers().map((w) => w.url());
   if (workerUrls.length) ok(`[run 1] worker script ${workerUrls[0]}`);
+
+  // The web version's extras stay off in the app: no offline service worker, no analytics.
+  const web = await page.evaluate(async () => ({
+    registrations: 'serviceWorker' in navigator ? (await navigator.serviceWorker.getRegistrations().catch(() => [])).length : 0,
+    controlled: Boolean(navigator.serviceWorker?.controller),
+    analytics: Boolean(document.querySelector('script[src*="_vercel"]')) || 'va' in window,
+  }));
+  check(web.registrations === 0 && !web.controlled, `[run 1] no service worker in app:// (${web.registrations} registrations)`);
+  check(!web.analytics, '[run 1] no analytics in the app');
+  // No share sheet here: Share copies the link and says so.
+  await page.getByRole('button', { name: 'Share', exact: true }).click();
+  const toast = await page
+    .waitForSelector('.toast', { timeout: 3000 })
+    .then((t) => t.innerText(), () => '');
+  check(toast === 'Link copied', `[run 1] Share copies the link ("${toast || 'no toast'}")`);
   // Wait until it is your move again (the reply is in, the snails are not crawling), then give the
   // save a moment.
   await page

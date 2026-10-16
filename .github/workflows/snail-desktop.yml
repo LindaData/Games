@@ -1,53 +1,53 @@
-# Builds the Immortal Snail Chess desktop app (Electron) for Windows, Linux and macOS and
-# uploads the builds as workflow artifacts, ready for immortal-snail/steam/stage-content.sh.
-# Run it from the Actions tab, or push a tag like snail-v1.0.0. No secrets needed; the macOS
+# Builds the Snailmate Chess desktop app (Electron) for Windows, Linux and macOS and uploads the
+# builds as workflow artifacts (SnailmateChess-windows / -linux / -macos), ready for
+# immortal-snail/steam/stage-content.sh. Run it from the Actions tab. No secrets needed; the macOS
 # build is unsigned (ad-hoc), see immortal-snail/steam/README.md.
+# steam-release.yml calls it too (Windows + Linux only) on a snail-v* tag, then uploads to Steam.
+# On a snail-vX.Y.Z tag the app's version is X.Y.Z (desktop/package.json is set from the tag).
 name: Snail desktop builds
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'snail-v*'
-    paths:
-      - 'immortal-snail/**'
-      - '.github/workflows/snail-desktop.yml'
+    inputs:
+      macos:
+        description: Also build macOS (unsigned)
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      macos:
+        description: Also build macOS (unsigned)
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: snail-desktop-${{ github.ref }}
+  # github.workflow is the caller's name when called, so a manual run never cancels a release.
+  group: snail-desktop-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.platform == 'windows' && 'windows-latest' || matrix.platform == 'macos' && 'macos-latest' || 'ubuntu-latest' }}
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: windows-latest
-            name: windows
-            builder: --win
-            files: immortal-snail/desktop/release/*.zip
-          - os: ubuntu-latest
-            name: linux
-            builder: --linux
-            files: immortal-snail/desktop/release/*.tar.gz
-          - os: macos-latest
-            name: macos
-            builder: --mac
-            files: immortal-snail/desktop/release/*.zip
+        platform: ${{ fromJSON(inputs.macos == false && '["windows", "linux"]' || '["windows", "linux", "macos"]') }}
+    env:
+      # electron-builder's platform flag, and the archive it makes (zip on Windows/macOS, tar.gz on Linux).
+      BUILDER_FLAG: --${{ matrix.platform == 'windows' && 'win' || matrix.platform == 'macos' && 'mac' || 'linux' }}
+      ARCHIVE: immortal-snail/desktop/release/*.${{ matrix.platform == 'linux' && 'tar.gz' || 'zip' }}
     defaults:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -71,36 +71,47 @@ jobs:
         working-directory: immortal-snail/desktop
         run: npm test
 
+      - name: Version from the tag (snail-v1.2.3 -> 1.2.3)
+        if: startsWith(github.ref, 'refs/tags/snail-v')
+        working-directory: immortal-snail/desktop
+        run: |
+          version="${GITHUB_REF_NAME#snail-v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error title=Tag name::$GITHUB_REF_NAME is not snail-v<major>.<minor>.<patch> (like snail-v1.0.1)."
+            exit 1
+          fi
+          npm version "$version" --no-git-tag-version --allow-same-version
+
       - name: Build the game for the app
         working-directory: immortal-snail/desktop
         run: npm run build:web
 
-      - name: Package (${{ matrix.name }})
+      - name: Package (${{ matrix.platform }})
         working-directory: immortal-snail/desktop
-        run: npx electron-builder ${{ matrix.builder }} --publish never
+        run: npx electron-builder "$BUILDER_FLAG" --publish never
 
       - name: Check the exe (icon, version info)
-        if: matrix.name == 'windows'
+        if: matrix.platform == 'windows'
         working-directory: immortal-snail/desktop
         run: node scripts/check-win-exe.mjs
 
       - name: Smoke test (play a move, restart, check the save)
-        if: matrix.name == 'linux'
+        if: matrix.platform == 'linux'
         working-directory: immortal-snail/desktop
         run: xvfb-run -a -s "-screen 0 1600x1000x24" node scripts/smoke-test.mjs
 
       - name: Upload the build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: ImmortalSnailChess-${{ matrix.name }}
-          path: ${{ matrix.files }}
+          name: SnailmateChess-${{ matrix.platform }}
+          path: ${{ env.ARCHIVE }}
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
 
       - name: Upload smoke test screenshots
-        if: matrix.name == 'linux' && always()
-        uses: actions/upload-artifact@v4
+        if: matrix.platform == 'linux' && always()
+        uses: actions/upload-artifact@v7
         with:
           name: smoke-screenshots
           path: immortal-snail/desktop/release/smoke/

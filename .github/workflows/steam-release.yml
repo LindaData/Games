@@ -1,0 +1,168 @@
+# Builds Snailmate Chess for Windows and Linux and uploads both depots to Steam with SteamCMD
+# (via immortal-snail/steam/upload.sh), then sets the build live on a beta branch.
+#   - push a tag like snail-v1.0.1  -> branch "beta" (the app's version is the tag's: 1.0.1)
+#   - or Actions > Steam release > Run workflow -> pick the branch
+# Both need this file on the default branch (main) and, for a tag, in the tagged commit.
+# Needs 5 repository secrets: STEAM_USERNAME, STEAM_CONFIG_VDF (base64 of config.vdf after one
+# Steam Guard login), STEAM_APP_ID, STEAM_DEPOT_WINDOWS, STEAM_DEPOT_LINUX. Without them it only
+# builds (the builds are attached to the run) and says which secrets are missing.
+# Setting a build live on the default branch is only possible in Steamworks, on purpose.
+name: Steam release
+
+on:
+  push:
+    tags:
+      - 'snail-v*'
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Steam branch to put the build on (a beta branch, not default)
+        type: string
+        required: true
+        default: beta
+
+permissions:
+  contents: read
+
+concurrency:
+  # One upload at a time; a second release waits instead of cancelling the first.
+  group: steam-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    uses: ./.github/workflows/snail-desktop.yml
+    with:
+      macos: false
+
+  steam:
+    name: Upload to Steam
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check the Steam secrets
+        id: secrets
+        env:
+          STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
+          STEAM_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF }}
+          STEAM_APP_ID: ${{ secrets.STEAM_APP_ID }}
+          STEAM_DEPOT_WINDOWS: ${{ secrets.STEAM_DEPOT_WINDOWS }}
+          STEAM_DEPOT_LINUX: ${{ secrets.STEAM_DEPOT_LINUX }}
+        run: |
+          missing=()
+          for name in STEAM_USERNAME STEAM_CONFIG_VDF STEAM_APP_ID STEAM_DEPOT_WINDOWS STEAM_DEPOT_LINUX; do
+            if [ -z "${!name}" ]; then missing+=("$name"); fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            msg="Steam upload skipped: add the repository secrets ${missing[*]} (Settings > Secrets and variables > Actions; see immortal-snail/steam/README.md). The Windows and Linux builds are attached to this run."
+            echo "::warning title=Steam upload skipped::$msg"
+            { echo "### Steam upload skipped"; echo; echo "$msg"; } >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.secrets.outputs.ready == 'true'
+
+      - name: Download the Windows build
+        if: steps.secrets.outputs.ready == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: SnailmateChess-windows
+          path: ${{ runner.temp }}/builds/windows
+
+      - name: Download the Linux build
+        if: steps.secrets.outputs.ready == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: SnailmateChess-linux
+          path: ${{ runner.temp }}/builds/linux
+
+      - name: Stage the builds for the depots
+        if: steps.secrets.outputs.ready == 'true'
+        working-directory: immortal-snail/steam
+        run: ./stage-content.sh "$RUNNER_TEMP"/builds/windows/*.zip "$RUNNER_TEMP"/builds/linux/*.tar.gz
+
+      - name: Install SteamCMD
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lib32gcc-s1 >/dev/null
+          dir="$RUNNER_TEMP/steamcmd"
+          mkdir -p "$dir"
+          curl -fsSL --retry 3 https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | tar -xz -C "$dir"
+          # The first run updates SteamCMD itself (it keeps its data in ~/Steam).
+          "$dir/steamcmd.sh" +quit || "$dir/steamcmd.sh" +quit
+          echo "STEAMCMD=$dir/steamcmd.sh" >> "$GITHUB_ENV"
+
+      - name: Restore the saved Steam login
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          STEAM_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF }}
+        run: |
+          umask 077
+          mkdir -p "$HOME/Steam/config"
+          file="$HOME/Steam/config/config.vdf"
+          if printf '%s' "$STEAM_CONFIG_VDF" | grep -q '{'; then
+            printf '%s\n' "$STEAM_CONFIG_VDF" > "$file" # pasted as plain text: fine too
+          elif ! printf '%s' "$STEAM_CONFIG_VDF" | tr -d ' \r\n\t' | base64 -d > "$file" 2>/dev/null; then
+            echo "::error title=STEAM_CONFIG_VDF::The STEAM_CONFIG_VDF secret is not valid base64. Encode config.vdf again (immortal-snail/steam/README.md)."
+            exit 1
+          fi
+          if ! grep -q 'ConnectCache' "$file"; then
+            echo "::warning title=STEAM_CONFIG_VDF::config.vdf has no saved login yet. Run steamcmd +login <builder account> once on your computer (password + Steam Guard code), then export config.vdf again."
+          fi
+
+      - name: Upload to Steam
+        id: upload
+        if: steps.secrets.outputs.ready == 'true'
+        timeout-minutes: 30
+        working-directory: immortal-snail/steam
+        env:
+          STEAM_USER: ${{ secrets.STEAM_USERNAME }}
+          APP_ID: ${{ secrets.STEAM_APP_ID }}
+          DEPOT_WIN: ${{ secrets.STEAM_DEPOT_WINDOWS }}
+          DEPOT_LINUX: ${{ secrets.STEAM_DEPOT_LINUX }}
+          SET_LIVE: ${{ inputs.branch || 'beta' }}
+        run: |
+          product="$(node -p "require('../desktop/package.json').productName")"
+          version="$(node -p "require('../desktop/package.json').version")"
+          # A snail-vX.Y.Z tag sets the version (the build job set package.json from it too).
+          case "$GITHUB_REF" in refs/tags/snail-v*) version="${GITHUB_REF_NAME#snail-v}" ;; esac
+          export BUILD_DESC="$product $version ($GITHUB_REF_NAME ${GITHUB_SHA::7})"
+          ./upload.sh --ci
+
+      - name: Summary
+        if: always() && steps.upload.outcome != 'skipped'
+        env:
+          OUTCOME: ${{ steps.upload.outcome }}
+          BUILD_ID: ${{ steps.upload.outputs.build_id }}
+          SET_LIVE: ${{ inputs.branch || 'beta' }}
+        run: |
+          if [ "$OUTCOME" = success ]; then
+            {
+              echo "### Uploaded to Steam: build ${BUILD_ID:-?} is live on the \`$SET_LIVE\` branch"
+              echo
+              echo "1. In Steam: right-click the game > Properties > Betas > \`$SET_LIVE\`, then play it (Windows, Linux, Steam Deck)."
+              echo "2. Happy? Steamworks > App Admin > SteamPipe > Builds: set build ${BUILD_ID:-?} live on **default**."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### Steam upload failed"
+              echo
+              echo "The log of the \"Upload to Steam\" step says why. Most common:"
+              echo "- Login failed: the saved login expired. Run \`steamcmd +login <builder account> +quit\` on your computer, then update the \`STEAM_CONFIG_VDF\` secret."
+              echo "- The \`$SET_LIVE\` branch doesn't exist: create it in Steamworks (SteamPipe > Builds > Manage Branches)."
+              echo "- \"status = 6\" or access denied: give the builder account the app's Edit App Metadata and Publish App Changes To Steam permissions."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Remove the saved Steam login
+        if: always()
+        run: rm -f "$HOME/Steam/config/config.vdf"
